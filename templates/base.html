@@ -19,8 +19,17 @@
       <a href="{% url 'debts:debt_list' %}" class="{% if request.resolver_match.app_name == 'debts' %}active{% endif %}">Schulden</a>
       <a href="{% url 'imports:import_upload' %}" class="{% if request.resolver_match.app_name == 'imports' %}active{% endif %}">Import</a>
       <a href="{% url 'core:account_list' %}" class="{% if 'account' in request.resolver_match.url_name %}active{% endif %}">Konten</a>
+      <a href="{% url 'core:recurring_list' %}" class="{% if 'recurring' in request.resolver_match.url_name %}active{% endif %}">Daueraufträge</a>
     </nav>
     {% block sidebar_extra %}{% endblock %}
+    <div class="auth-status">
+      {% if user.is_authenticated %}
+        <span>{{ user.username }}</span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="link-btn">Abmelden</button></form>
+      {% else %}
+        <a href="{% url 'login' %}">Anmelden</a>
+      {% endif %}
+    </div>
   </aside>
   <main class="main">
     {% if messages %}

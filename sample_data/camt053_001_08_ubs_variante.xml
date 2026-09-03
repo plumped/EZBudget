@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.08">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>UBS-2026-10-000123</MsgId>
+      <CreDtTm>2026-10-01T06:15:00Z</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>UBS-STMT-2026-10-A</Id>
+      <Acct>
+        <Id>
+          <IBAN>CH2100762011623852957A</IBAN>
+        </Id>
+        <Ccy>CHF</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="CHF">62.15</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><DtTm>2026-10-02T09:12:00Z</DtTm></BookgDt>
+        <ValDt><DtTm>2026-10-02T09:12:00Z</DtTm></ValDt>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <AcctSvcrRef>UBS-REF-88001</AcctSvcrRef>
+            </Refs>
+            <RmtInf>
+              <Ustrd>Kartenzahlung Coop Supermarkt</Ustrd>
+            </RmtInf>
+            <RltdPties>
+              <Cdtr><Nm>Coop Genossenschaft</Nm></Cdtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <!-- Keine AcctSvcrRef vorhanden: Parser muss einen Fallback-Hash erzeugen -->
+        <Amt Ccy="CHF">18.90</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><DtTm>2026-10-03T14:40:00Z</DtTm></BookgDt>
+        <NtryDtls>
+          <TxDtls>
+            <AddtlNtryInf>Streaming-Abo monatlich</AddtlNtryInf>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+    <Stmt>
+      <Id>UBS-STMT-2026-10-B</Id>
+      <Acct>
+        <Id>
+          <IBAN>CH2100762011623852957A</IBAN>
+        </Id>
+        <Ccy>CHF</Ccy>
+      </Acct>
+      <Ntry>
+        <Amt Ccy="CHF">3950.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><DtTm>2026-10-25T05:00:00Z</DtTm></BookgDt>
+        <NtryDtls>
+          <TxDtls>
+            <Refs>
+              <AcctSvcrRef>UBS-REF-88002</AcctSvcrRef>
+            </Refs>
+            <RmtInf>
+              <Ustrd>Lohn Oktober 2026</Ustrd>
+              <Ustrd>Lohn Oktober 2026</Ustrd>
+            </RmtInf>
+            <RltdPties>
+              <Dbtr><Nm>Arbeitgeber AG</Nm></Dbtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

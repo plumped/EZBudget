@@ -3,11 +3,29 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
-from .models import Account, Category, Transaction
+from .forms import AccountForm, CategoryForm, RecurringTransactionForm, SignupForm
+from .models import Account, Category, RecurringTransaction, Transaction
+from .services import generate_due_recurring
+
+
+def signup(request):
+    if request.user.is_authenticated:
+        return redirect("core:dashboard")
+    if request.method == "POST":
+        form = SignupForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, f"Willkommen, {user.username}!")
+            return redirect("core:dashboard")
+    else:
+        form = SignupForm()
+    return render(request, "registration/signup.html", {"form": form})
 
 
 def _month_context(request):
@@ -36,7 +54,12 @@ def _month_context(request):
     }
 
 
+@login_required
 def dashboard(request):
+    generated = generate_due_recurring()
+    for txn in generated:
+        messages.info(request, f"Wiederkehrende Buchung generiert: {txn.description} ({txn.amount}).")
+
     ctx = _month_context(request)
     year, month = ctx["year"], ctx["month"]
 
@@ -98,6 +121,7 @@ def dashboard(request):
     return render(request, "core/dashboard.html", context)
 
 
+@login_required
 def envelope_list(request):
     ctx = _month_context(request)
     year, month = ctx["year"], ctx["month"]
@@ -110,6 +134,7 @@ def envelope_list(request):
                 "category": c,
                 "spent": spent,
                 "available": c.monthly_budget - spent,
+                "rollover": c.rollover_balance(year, month),
                 "progress": c.progress_percent(year, month),
                 "over_budget": spent > c.monthly_budget and c.monthly_budget > 0,
             }
@@ -118,6 +143,7 @@ def envelope_list(request):
     return render(request, "core/envelope_list.html", context)
 
 
+@login_required
 def envelope_detail(request, pk):
     category = get_object_or_404(Category, pk=pk)
     ctx = _month_context(request)
@@ -129,11 +155,13 @@ def envelope_detail(request, pk):
         "transactions": transactions,
         "spent": category.spent_in_month(year, month),
         "available": category.available_in_month(year, month),
+        "rollover": category.rollover_balance(year, month),
         "progress": category.progress_percent(year, month),
     }
     return render(request, "core/envelope_detail.html", context)
 
 
+@login_required
 def transaction_list(request):
     ctx = _month_context(request)
     year, month = ctx["year"], ctx["month"]
@@ -147,6 +175,7 @@ def transaction_list(request):
     return render(request, "core/transaction_list.html", context)
 
 
+@login_required
 def transaction_add(request):
     accounts = Account.objects.filter(is_archived=False)
     categories = Category.objects.filter(is_archived=False)
@@ -179,6 +208,7 @@ def transaction_add(request):
     )
 
 
+@login_required
 def transaction_delete(request, pk):
     txn = get_object_or_404(Transaction, pk=pk)
     if request.method == "POST":
@@ -187,12 +217,147 @@ def transaction_delete(request, pk):
     return redirect("core:transaction_list")
 
 
+@login_required
 def account_list(request):
     accounts = Account.objects.all()
     return render(request, "core/account_list.html", {"accounts": accounts})
 
 
+@login_required
 def account_detail(request, pk):
     account = get_object_or_404(Account, pk=pk)
     transactions = account.transactions.all()[:50]
     return render(request, "core/account_detail.html", {"account": account, "transactions": transactions})
+
+
+@login_required
+def account_add(request):
+    if request.method == "POST":
+        form = AccountForm(request.POST)
+        if form.is_valid():
+            account = form.save()
+            messages.success(request, f"Konto „{account.name}“ angelegt.")
+            return redirect("core:account_list")
+    else:
+        form = AccountForm()
+    return render(request, "core/account_form.html", {"form": form, "is_new": True})
+
+
+@login_required
+def account_edit(request, pk):
+    account = get_object_or_404(Account, pk=pk)
+    if request.method == "POST":
+        form = AccountForm(request.POST, instance=account)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Konto „{account.name}“ aktualisiert.")
+            return redirect("core:account_list")
+    else:
+        form = AccountForm(instance=account)
+    return render(request, "core/account_form.html", {"form": form, "account": account, "is_new": False})
+
+
+@login_required
+def account_archive_toggle(request, pk):
+    account = get_object_or_404(Account, pk=pk)
+    if request.method == "POST":
+        account.is_archived = not account.is_archived
+        account.save(update_fields=["is_archived"])
+        messages.success(
+            request,
+            f"Konto „{account.name}“ {'archiviert' if account.is_archived else 'reaktiviert'}.",
+        )
+    return redirect("core:account_list")
+
+
+@login_required
+def envelope_add(request):
+    if request.method == "POST":
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            category = form.save()
+            messages.success(request, f"Umschlag „{category.name}“ angelegt.")
+            return redirect("core:envelope_list")
+    else:
+        form = CategoryForm()
+    return render(request, "core/envelope_form.html", {"form": form, "is_new": True})
+
+
+@login_required
+def envelope_edit(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == "POST":
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Umschlag „{category.name}“ aktualisiert.")
+            return redirect("core:envelope_list")
+    else:
+        form = CategoryForm(instance=category)
+    return render(request, "core/envelope_form.html", {"form": form, "category": category, "is_new": False})
+
+
+@login_required
+def envelope_archive_toggle(request, pk):
+    category = get_object_or_404(Category, pk=pk)
+    if request.method == "POST":
+        category.is_archived = not category.is_archived
+        category.save(update_fields=["is_archived"])
+        messages.success(
+            request,
+            f"Umschlag „{category.name}“ {'archiviert' if category.is_archived else 'reaktiviert'}.",
+        )
+    return redirect("core:envelope_list")
+
+
+@login_required
+def recurring_list(request):
+    recurring = RecurringTransaction.objects.select_related("account", "category").all()
+    return render(request, "core/recurring_list.html", {"recurring": recurring})
+
+
+@login_required
+def recurring_add(request):
+    if request.method == "POST":
+        form = RecurringTransactionForm(request.POST)
+        if form.is_valid():
+            rt = form.save()
+            messages.success(request, f"Dauerauftrag „{rt.description}“ angelegt.")
+            return redirect("core:recurring_list")
+    else:
+        form = RecurringTransactionForm()
+    return render(request, "core/recurring_form.html", {"form": form, "is_new": True})
+
+
+@login_required
+def recurring_edit(request, pk):
+    rt = get_object_or_404(RecurringTransaction, pk=pk)
+    if request.method == "POST":
+        form = RecurringTransactionForm(request.POST, instance=rt)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Dauerauftrag „{rt.description}“ aktualisiert.")
+            return redirect("core:recurring_list")
+    else:
+        form = RecurringTransactionForm(instance=rt)
+    return render(request, "core/recurring_form.html", {"form": form, "recurring": rt, "is_new": False})
+
+
+@login_required
+def recurring_delete(request, pk):
+    rt = get_object_or_404(RecurringTransaction, pk=pk)
+    if request.method == "POST":
+        rt.delete()
+        messages.success(request, f"Dauerauftrag „{rt.description}“ gelöscht.")
+    return redirect("core:recurring_list")
+
+
+@login_required
+def recurring_generate(request):
+    if request.method == "POST":
+        created = generate_due_recurring()
+        if created:
+            messages.success(request, f"{len(created)} Buchung(en) generiert.")
+        else:
+            messages.info(request, "Keine fälligen wiederkehrenden Buchungen.")
+    return redirect("core:recurring_list")

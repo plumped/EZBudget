@@ -101,7 +101,9 @@ def parse_camt053(file_obj):
                 _text(u) for u in _findall_anywhere(ntry, "Ustrd") if _text(u)
             ]
             if not descr_parts:
-                addtl = _first_direct(ntry, "AddtlNtryInf")
+                # Manche Banken liefern AddtlNtryInf direkt unter Ntry, andere
+                # verschachtelt unter NtryDtls/TxDtls — daher anywhere statt direct.
+                addtl = _find_anywhere(ntry, "AddtlNtryInf")
                 if addtl is not None and _text(addtl):
                     descr_parts.append(_text(addtl))
             description = " / ".join(dict.fromkeys(descr_parts)) or "(keine Beschreibung)"

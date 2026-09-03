@@ -11,9 +11,9 @@
 <div class="page-header">
   <div>
     <h1>Umschläge</h1>
-    <p>Jeder Franken hat einen Job. Lege in der Django-Admin oder hier neue Umschläge an.</p>
+    <p>Jeder Franken hat einen Job.</p>
   </div>
-  <a href="/admin/core/category/add/" class="btn secondary">+ Neuer Umschlag</a>
+  <a href="{% url 'core:envelope_add' %}" class="btn secondary">+ Neuer Umschlag</a>
 </div>
 
 <div class="ledger">
@@ -25,16 +25,18 @@
       <div class="sub">
         <span class="badge {{ row.category.kind }}">{{ row.category.get_kind_display }}</span>
         {% if row.category.keywords %}<span class="mono">· auto: {{ row.category.keywords }}</span>{% endif %}
+        · <a href="{% url 'core:envelope_edit' row.category.id %}">bearbeiten</a>
+        · <form method="post" action="{% url 'core:envelope_archive_toggle' row.category.id %}" style="display:inline">{% csrf_token %}<button type="submit" class="link-btn" style="color:var(--primary)">{% if row.category.is_archived %}reaktivieren{% else %}archivieren{% endif %}</button></form>
       </div>
       <div class="bar-track"><div class="bar-fill {% if row.over_budget %}over{% endif %}" style="width:{{ row.progress }}%"></div></div>
     </div>
-    <div class="amount num {% if row.available < 0 %}negative{% else %}positive{% endif %}">
-      {{ row.available|floatformat:0 }}
-      <div class="sub" style="font-size:0.72rem">verfügbar von {{ row.category.monthly_budget|floatformat:0 }}</div>
+    <div class="amount num {% if row.rollover < 0 %}negative{% else %}positive{% endif %}">
+      {{ row.rollover|floatformat:0 }}
+      <div class="sub" style="font-size:0.72rem">verfügbar mit Übertrag ({{ row.available|floatformat:0 }} diesen Monat)</div>
     </div>
   </div>
   {% empty %}
-  <div class="empty-state">Noch keine Umschläge angelegt. <a href="/admin/core/category/add/">Ersten Umschlag anlegen</a></div>
+  <div class="empty-state">Noch keine Umschläge angelegt. <a href="{% url 'core:envelope_add' %}">Ersten Umschlag anlegen</a></div>
   {% endfor %}
 </div>
 {% endblock %}

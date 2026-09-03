@@ -1,5 +1,8 @@
+import calendar
+from datetime import date
 from decimal import Decimal
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.urls import reverse
 
@@ -54,6 +57,7 @@ class Category(models.Model):
     color = models.CharField(max_length=7, default="#6366f1")
     icon = models.CharField(max_length=10, default="\U0001F4B0")
     is_archived = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         verbose_name_plural = "Categories"
@@ -87,6 +91,29 @@ class Category(models.Model):
         pct = (spent / self.monthly_budget) * 100
         return int(min(pct, 100))
 
+    def rollover_balance(self, year, month):
+        """Kumulierter Umschlag-Saldo inkl. Übertrag aus Vormonaten.
+
+        Rechnet seit Anlage des Umschlags (oder dem Zielmonat, falls dieser
+        früher liegt) mit dem aktuellen Monatsbudget statt einer historischen
+        Budgethöhe — ausreichend für die Übertragslogik, aber keine
+        rückwirkend korrekte Budget-Historie.
+        """
+        start = self.created_at.date().replace(day=1) if self.created_at else date(year, month, 1)
+        target_first = date(year, month, 1)
+        if target_first < start:
+            return Decimal("0")
+
+        months = (target_first.year - start.year) * 12 + (target_first.month - start.month) + 1
+        last_day = calendar.monthrange(target_first.year, target_first.month)[1]
+        end = date(target_first.year, target_first.month, last_day)
+
+        agg = self.transactions.filter(
+            date__gte=start, date__lte=end, amount__lt=0
+        ).aggregate(total=models.Sum("amount"))
+        total_spent = -(agg["total"] or Decimal("0"))
+        return self.monthly_budget * months - total_spent
+
 
 class Transaction(models.Model):
     account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="transactions")
@@ -109,3 +136,31 @@ class Transaction(models.Model):
     @property
     def is_expense(self):
         return self.amount < 0
+
+
+class RecurringTransaction(models.Model):
+    """Vorlage für wiederkehrende Buchungen (Fixkosten, Abos, Lohn ...)."""
+
+    account = models.ForeignKey(Account, on_delete=models.CASCADE, related_name="recurring_transactions")
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="recurring_transactions"
+    )
+    description = models.CharField(max_length=500)
+    counterparty = models.CharField(max_length=255, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Negativ = Ausgabe, positiv = Einnahme")
+    day_of_month = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(28)],
+        help_text="Tag im Monat, an dem die Buchung generiert wird (1–28, damit jeder Monat den Tag hat)",
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["day_of_month", "description"]
+
+    def __str__(self):
+        return f"{self.description} ({self.amount} am {self.day_of_month}.)"
+
+    def import_ref_for(self, year, month):
+        return f"recurring-{self.pk}-{year}-{month:02d}"

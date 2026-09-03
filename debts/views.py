@@ -2,12 +2,14 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .models import Debt, DebtPayment
 from .services import simulate_payoff
 
 
+@login_required
 def debt_list(request):
     strategy = request.GET.get("strategy", "avalanche")
     if strategy not in ("avalanche", "snowball"):
@@ -56,6 +58,7 @@ def debt_list(request):
     return render(request, "debts/debt_list.html", context)
 
 
+@login_required
 def debt_add(request):
     if request.method == "POST":
 
@@ -75,6 +78,7 @@ def debt_add(request):
     return render(request, "debts/debt_form.html")
 
 
+@login_required
 def debt_detail(request, pk):
     debt = get_object_or_404(Debt, pk=pk)
     if request.method == "POST":
@@ -94,6 +98,7 @@ def debt_detail(request, pk):
     )
 
 
+@login_required
 def debt_delete(request, pk):
     debt = get_object_or_404(Debt, pk=pk)
     if request.method == "POST":

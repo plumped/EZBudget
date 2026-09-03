@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}Neuer Dauerauftrag{% else %}Dauerauftrag bearbeiten{% endif %} — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>{% if is_new %}Neuer Dauerauftrag{% else %}Dauerauftrag bearbeiten{% endif %}</h1><p>Wird jeden Monat am angegebenen Tag automatisch als Buchung erzeugt.</p></div>
+</div>
+<div class="sheet" style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+    <div class="field">
+      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+      {{ field }}
+      {% if field.help_text %}<p class="helptext">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="helptext" style="color:var(--alert)">{{ error }}</p>{% endfor %}
+    </div>
+    {% endfor %}
+    <button type="submit" class="btn">Speichern</button>
+    <a href="{% url 'core:recurring_list' %}" class="btn secondary">Abbrechen</a>
+  </form>
+</div>
+{% endblock %}

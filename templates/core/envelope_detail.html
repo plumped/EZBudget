@@ -21,8 +21,12 @@
       <div class="value negative num">{{ spent|floatformat:2 }}</div>
     </div>
     <div class="stat">
-      <div class="hero-label">Verfügbar</div>
+      <div class="hero-label">Verfügbar (nur dieser Monat)</div>
       <div class="value {% if available < 0 %}negative{% else %}positive{% endif %} num">{{ available|floatformat:2 }}</div>
+    </div>
+    <div class="stat">
+      <div class="hero-label">Verfügbar mit Übertrag</div>
+      <div class="value {% if rollover < 0 %}negative{% else %}positive{% endif %} num">{{ rollover|floatformat:2 }}</div>
     </div>
   </div>
 </div>

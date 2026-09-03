@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Account, Category, Transaction
+from .models import Account, Category, RecurringTransaction, Transaction
 
 
 @admin.register(Account)
@@ -23,3 +23,10 @@ class TransactionAdmin(admin.ModelAdmin):
     list_filter = ("account", "category")
     search_fields = ("description", "counterparty", "import_ref")
     date_hierarchy = "date"
+
+
+@admin.register(RecurringTransaction)
+class RecurringTransactionAdmin(admin.ModelAdmin):
+    list_display = ("description", "amount", "day_of_month", "account", "category", "is_active")
+    list_filter = ("is_active", "account", "category")
+    search_fields = ("description", "counterparty")

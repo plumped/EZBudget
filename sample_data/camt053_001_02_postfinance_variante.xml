@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>POFI-2026-10-77</MsgId>
+      <CreDtTm>2026-10-31T20:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>POFI-STMT-2026-10</Id>
+      <Acct>
+        <Id>
+          <IBAN>CH6109000000871234567</IBAN>
+        </Id>
+        <Ccy>CHF</Ccy>
+      </Acct>
+      <Ntry>
+        <NtryRef>POFI-2026-10-0001</NtryRef>
+        <Amt Ccy="CHF">1450.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-10-01</Dt></BookgDt>
+        <ValDt><Dt>2026-10-01</Dt></ValDt>
+        <AcctSvcrRef>POFI-REF-0001</AcctSvcrRef>
+        <AddtlNtryInf>Mietzins Oktober, Dauerauftrag</AddtlNtryInf>
+      </Ntry>
+      <Ntry>
+        <NtryRef>POFI-2026-10-0002</NtryRef>
+        <Amt Ccy="EUR">39.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-10-06</Dt></BookgDt>
+        <ValDt><Dt>2026-10-08</Dt></ValDt>
+        <AcctSvcrRef>POFI-REF-0002</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf><Ustrd>Online-Bestellung, Fremdwaehrung</Ustrd></RmtInf>
+            <RltdPties>
+              <Cdtr><Nm>Onlineshop Europe GmbH</Nm></Cdtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>POFI-2026-10-0003</NtryRef>
+        <Amt Ccy="CHF">250.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-10-15</Dt></BookgDt>
+        <ValDt><Dt>2026-10-15</Dt></ValDt>
+        <AcctSvcrRef>POFI-REF-0003</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf><Ustrd>Rückerstattung Krankenkasse</Ustrd></RmtInf>
+            <RltdPties>
+              <Dbtr><Nm>CSS Versicherung</Nm></Dbtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

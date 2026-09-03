@@ -4,18 +4,19 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 
-from core.models import Account, Category, Transaction
+from core.models import Account, Category, RecurringTransaction, Transaction
 from debts.models import Debt, DebtPayment
 
 
 class Command(BaseCommand):
-    help = "Legt Demo-Daten für ezbudget an (Konten, Umschläge, Buchungen, Schulden)."
+    help = "Legt Demo-Daten für ezbudget an (Konten, Umschläge, Buchungen, Schulden, Daueraufträge)."
 
     def add_arguments(self, parser):
         parser.add_argument("--reset", action="store_true", help="Vorher alle Daten löschen")
 
     def handle(self, *args, **options):
         if options["reset"]:
+            RecurringTransaction.objects.all().delete()
             Transaction.objects.all().delete()
             DebtPayment.objects.all().delete()
             Debt.objects.all().delete()
@@ -113,4 +114,21 @@ class Command(BaseCommand):
             )
             DebtPayment.objects.create(debt=privat, date=today - timedelta(days=30), amount=Decimal("50"), note="Monatsrate")
 
-        self.stdout.write(self.style.SUCCESS("Demo-Daten angelegt: 2 Konten, 11 Umschläge, 13 Buchungen, 3 Schulden."))
+        recurring_data = [
+            ("Mietzins", categories["Miete"], Decimal("-1450"), "Hausverwaltung Muster AG", 3),
+            ("Krankenkassenprämie", categories["Krankenkasse"], Decimal("-320"), "CSS Versicherung", 4),
+            ("Swisscom Abo", categories["Internet & Handy"], Decimal("-75"), "Swisscom AG", 5),
+            ("Lohn", categories["Lohn"], Decimal("4200"), "Arbeitgeber AG", 1),
+        ]
+        for descr, cat, amount, party, day in recurring_data:
+            RecurringTransaction.objects.get_or_create(
+                description=descr,
+                account=checking,
+                defaults=dict(category=cat, amount=amount, counterparty=party, day_of_month=day),
+            )
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Demo-Daten angelegt: 2 Konten, 11 Umschläge, 13 Buchungen, 3 Schulden, 4 Daueraufträge."
+            )
+        )

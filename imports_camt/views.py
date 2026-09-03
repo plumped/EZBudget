@@ -2,6 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
@@ -40,6 +41,7 @@ def _deserialize(rows):
     return out
 
 
+@login_required
 def import_upload(request):
     accounts = Account.objects.filter(is_archived=False)
 
@@ -82,6 +84,7 @@ def import_upload(request):
     return render(request, "imports_camt/upload.html", {"accounts": accounts})
 
 
+@login_required
 def import_preview(request):
     data = request.session.get(SESSION_KEY)
     if not data:
@@ -132,11 +135,13 @@ def import_preview(request):
     return render(request, "imports_camt/preview.html", context)
 
 
+@login_required
 def import_cancel(request):
     request.session.pop(SESSION_KEY, None)
     return redirect("imports:import_upload")
 
 
+@login_required
 def import_history(request):
     batches = ImportBatch.objects.select_related("account")
     return render(request, "imports_camt/history.html", {"batches": batches})

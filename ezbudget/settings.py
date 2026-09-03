@@ -122,6 +122,10 @@ STATICFILES_DIRS = [BASE_DIR / 'static']
 
 DEFAULT_CURRENCY = 'CHF'
 
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'core:dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
