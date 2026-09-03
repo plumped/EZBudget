@@ -130,12 +130,7 @@ input[type='radio'],
 select {
   cursor: pointer;
 }
-input[type='text'],
-input[type='number'],
-input[type='date'],
-input[type='password'],
-input[type='email'],
-input[type='file'] {
+input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   cursor: text;
 }
 
@@ -630,13 +625,7 @@ table.data tr:hover td {
   font-weight: 600;
   color: var(--color-fg);
 }
-input[type='text'],
-input[type='number'],
-input[type='date'],
-input[type='password'],
-input[type='email'],
-input[type='file'],
-input[type='color'],
+input:not([type='checkbox']):not([type='radio']):not([type='color']),
 select,
 textarea {
   width: 100%;
@@ -648,6 +637,19 @@ textarea {
   background: var(--color-card);
   color: var(--color-fg);
   transition: border-color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease);
+}
+input[type='file'] {
+  padding: 8px 10px;
+  border: 1px dashed var(--color-border);
+}
+input[type='color'] {
+  width: 48px;
+  height: 42px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  cursor: pointer;
 }
 input:focus,
 select:focus,
