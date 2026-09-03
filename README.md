@@ -202,6 +202,29 @@ handgeschriebenes CSS-Design-System (`frontend/src/index.css`) mit CSS-Custom-Pr
 für Farben/Radien/Schatten. Der Tilgungsverlauf-Chart ist eine kleine, selbst
 geschriebene Inline-SVG-Komponente (keine zusätzliche Chart-Bibliothek).
 
+### 5.9 Design-Überarbeitung mit dem ui-ux-pro-max-Skill
+
+Das Farb-/Typografie-/Icon-System wurde mit dem lokalen Claude-Code-Skill
+[`ui-ux-pro-max`](.claude/skills/ui-ux-pro-max/) (`nextlevelbuilder/ui-ux-pro-max-skill`,
+MIT-lizenziert) recherchiert statt frei erfunden. Die Recherche und die daraus
+resultierenden Entscheidungen sind in `design-system/ezbudget/MASTER.md` dokumentiert —
+inklusive der Fälle, in denen ein automatischer Treffer verworfen wurde (der erste breite
+Suchtreffer war ein Dark-OLED-Marketing-Landingpage-Pattern, das für eine eingeloggte
+Finance-App nicht passt; gezielte Nachfragen lieferten die tatsächlich verwendeten Werte).
+
+- **Farben/Style**: "Minimalism & Swiss Style" (Banking/Finance-Palette, Navy/Blue),
+  automatischer Light-/Dark-Modus über `prefers-color-scheme`.
+- **Typografie**: Lexend (Headings) + Source Sans 3 (Body) — "Corporate Trust"-Pairing,
+  explizit für Finance/Accessibility empfohlen.
+- **Icons**: Emoji-Chrome (Sidebar, Buttons, Toasts, Empty-States) durch
+  [`@phosphor-icons/react`](https://phosphoricons.com/) ersetzt — das vom Skill als
+  Anti-Pattern geflaggte "Emoji als Icon" betraf nur UI-Chrome. Das frei wählbare
+  Umschlag-Icon (z.B. 🛒) bleibt bewusst Emoji, da es Nutzerinhalt ist, kein UI-Element.
+- **Barrierefreiheit**: Skeleton-Loading (`aria-busy`) statt reinem Text, strukturierte
+  Formularfehler (`aria-describedby`/`aria-invalid` pro Feld statt einem Sammelfehler),
+  Fokus-Management bei fehlgeschlagenem Submit, Toasts mit `role="status"`/`"alert"`,
+  Text-Caption am Tilgungsverlauf-Chart (Trend nicht nur über Farbe erkennbar).
+
 ## 6. Nächste Schritte
 
 1. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
