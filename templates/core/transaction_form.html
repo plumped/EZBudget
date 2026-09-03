@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Buchung erfassen — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Buchung erfassen</h1><p>Manuelle Buchung hinzufügen (z.B. Bargeld).</p></div>
+</div>
+
+<div class="sheet" style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label>Richtung</label>
+      <div class="toggle-group" style="width:100%">
+        <label style="flex:1;text-align:center;padding:7px 0;cursor:pointer;border-right:1px solid var(--line)">
+          <input type="radio" name="direction" value="expense" checked style="width:auto;display:inline"> Ausgabe
+        </label>
+        <label style="flex:1;text-align:center;padding:7px 0;cursor:pointer">
+          <input type="radio" name="direction" value="income" style="width:auto;display:inline"> Einnahme
+        </label>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="amount">Betrag (CHF)</label>
+        <input type="text" id="amount" name="amount" required placeholder="42.50">
+      </div>
+      <div class="field">
+        <label for="date">Datum</label>
+        <input type="date" id="date" name="date" value="{{ today }}" required>
+      </div>
+    </div>
+    <div class="field">
+      <label for="description">Beschreibung</label>
+      <input type="text" id="description" name="description" placeholder="z.B. Migros Einkauf">
+    </div>
+    <div class="field">
+      <label for="counterparty">Gegenpartei (optional)</label>
+      <input type="text" id="counterparty" name="counterparty" placeholder="z.B. Migros AG">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="account">Konto</label>
+        <select id="account" name="account" required>
+          {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="category">Umschlag</label>
+        <select id="category" name="category">
+          <option value="">— ohne —</option>
+          {% for c in categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="btn">Buchung speichern</button>
+    <a href="{% url 'core:transaction_list' %}" class="btn secondary">Abbrechen</a>
+  </form>
+</div>
+{% endblock %}

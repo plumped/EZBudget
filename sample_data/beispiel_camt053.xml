@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr>
+      <MsgId>MSG-2026-0912-001</MsgId>
+      <CreDtTm>2026-09-01T08:00:00</CreDtTm>
+    </GrpHdr>
+    <Stmt>
+      <Id>STMT-0912</Id>
+      <Acct>
+        <Id>
+          <IBAN>CH9300762011623852957</IBAN>
+        </Id>
+        <Ccy>CHF</Ccy>
+      </Acct>
+      <Ntry>
+        <NtryRef>2026091001</NtryRef>
+        <Amt Ccy="CHF">84.30</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-02</Dt></BookgDt>
+        <ValDt><Dt>2026-09-02</Dt></ValDt>
+        <AcctSvcrRef>REF-1001</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf><Ustrd>Einkauf Migros Zuerich</Ustrd></RmtInf>
+            <RltdPties>
+              <Cdtr><Nm>Migros Genossenschaft</Nm></Cdtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>2026091002</NtryRef>
+        <Amt Ccy="CHF">4200.00</Amt>
+        <CdtDbtInd>CRDT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-01</Dt></BookgDt>
+        <ValDt><Dt>2026-09-01</Dt></ValDt>
+        <AcctSvcrRef>REF-1002</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf><Ustrd>Lohn September 2026</Ustrd></RmtInf>
+            <RltdPties>
+              <Dbtr><Nm>Arbeitgeber AG</Nm></Dbtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+      <Ntry>
+        <NtryRef>2026091003</NtryRef>
+        <Amt Ccy="CHF">1450.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-03</Dt></BookgDt>
+        <ValDt><Dt>2026-09-03</Dt></ValDt>
+        <AcctSvcrRef>REF-1003</AcctSvcrRef>
+        <NtryDtls>
+          <TxDtls>
+            <RmtInf><Ustrd>Mietzins September</Ustrd></RmtInf>
+            <RltdPties>
+              <Cdtr><Nm>Hausverwaltung Muster AG</Nm></Cdtr>
+            </RltdPties>
+          </TxDtls>
+        </NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>

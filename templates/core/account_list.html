@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Konten — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Konten</h1><p>Alle deine Bankkonten und Bargeldkassen.</p></div>
+  <a href="/admin/core/account/add/" class="btn secondary">+ Neues Konto</a>
+</div>
+<div class="ledger">
+  {% for a in accounts %}
+  <div class="ledger-row">
+    <div class="dot" style="background:var(--primary)"></div>
+    <div class="envelope-cell">
+      <a href="{% url 'core:account_detail' a.id %}" class="title">{{ a.name }}</a>
+      <div class="sub">{{ a.get_account_type_display }}{% if a.iban %} · {{ a.iban }}{% endif %}</div>
+    </div>
+    <div class="amount num {% if a.balance < 0 %}negative{% else %}positive{% endif %}">{{ a.balance|floatformat:2 }}</div>
+  </div>
+  {% empty %}
+  <div class="empty-state">Noch keine Konten. <a href="/admin/core/account/add/">Erstes Konto anlegen</a></div>
+  {% endfor %}
+</div>
+{% endblock %}

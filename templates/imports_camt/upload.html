@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}CAMT.053 Import — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Kontoauszug importieren</h1>
+    <p>CAMT.053-XML-Datei deiner Bank hochladen. Duplikate werden automatisch erkannt.</p>
+  </div>
+  <a href="{% url 'imports:import_history' %}" class="btn secondary">Import-Verlauf</a>
+</div>
+
+<div class="sheet" style="max-width:480px">
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="field">
+      <label for="account">Konto</label>
+      <select id="account" name="account" required>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+      </select>
+      {% if not accounts %}<div class="helptext">Erst <a href="/admin/core/account/add/">ein Konto anlegen</a>.</div>{% endif %}
+    </div>
+    <div class="field">
+      <label for="camt_file">CAMT.053-Datei (.xml)</label>
+      <input type="file" id="camt_file" name="camt_file" accept=".xml" required>
+      <div class="helptext">Unterstützt camt.053.001.02 / .04 / .08 — der Export deiner Bank aus dem E-Banking.</div>
+    </div>
+    <button type="submit" class="btn">Datei einlesen</button>
+  </form>
+</div>
+{% endblock %}

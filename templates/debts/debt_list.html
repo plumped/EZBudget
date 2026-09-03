@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Schulden — ezbudget{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Schuldenabbau</h1>
+    <p>Aktiver Tilgungsplan — wie ein digitaler Schuldenberater.</p>
+  </div>
+  <a href="{% url 'debts:debt_add' %}" class="btn">+ Schuld erfassen</a>
+</div>
+
+{% if not all_debts %}
+<div class="empty-state">Noch keine Schulden erfasst. <a href="{% url 'debts:debt_add' %}">Erste Schuld hinzufügen</a> — dann rechnet ezbudget dir einen Tilgungsplan aus.</div>
+{% else %}
+
+<form method="get" class="sheet" style="display:flex;align-items:flex-end;gap:24px;flex-wrap:wrap;">
+  <div class="field" style="margin:0">
+    <label>Strategie</label>
+    <div class="toggle-group">
+      <a href="?strategy=avalanche&extra={{ extra_budget|urlencode }}" class="{% if strategy == 'avalanche' %}active{% endif %}">Avalanche (höchster Zins zuerst)</a>
+      <a href="?strategy=snowball&extra={{ extra_budget|urlencode }}" class="{% if strategy == 'snowball' %}active{% endif %}">Snowball (kleinste Schuld zuerst)</a>
+    </div>
+  </div>
+  <div class="field" style="margin:0;max-width:220px">
+    <label for="extra">Zusätzlicher Betrag / Monat (über den Mindestraten)</label>
+    <input type="text" id="extra" name="extra" value="{{ extra_budget }}">
+  </div>
+  <input type="hidden" name="strategy" value="{{ strategy }}">
+  <button type="submit" class="btn secondary">Neu berechnen</button>
+</form>
+
+<div class="sheet">
+  <div class="stat-row">
+    <div class="stat">
+      <div class="hero-label">Restschuld gesamt</div>
+      <div class="value negative num">{{ total_balance|floatformat:2 }}</div>
+    </div>
+    <div class="stat">
+      <div class="hero-label">Monatlich gesamt (Minimum + Extra)</div>
+      <div class="value num">{{ total_monthly|floatformat:2 }}</div>
+    </div>
+    <div class="stat">
+      <div class="hero-label">Schuldenfrei in</div>
+      <div class="value positive num">{{ result.months }} Monaten</div>
+    </div>
+    {% if result.debt_free_date %}
+    <div class="stat">
+      <div class="hero-label">Voraussichtlich schuldenfrei am</div>
+      <div class="value positive num">{{ result.debt_free_date|date:"F Y" }}</div>
+    </div>
+    {% endif %}
+    <div class="stat">
+      <div class="hero-label">Zinskosten bis dahin</div>
+      <div class="value negative num">{{ result.total_interest|floatformat:2 }}</div>
+    </div>
+  </div>
+  {% if result.reached_max %}
+  <p class="helptext" style="color:var(--alert);margin-top:14px">Bei diesem Tempo dauert es über 50 Jahre. Erhöhe den zusätzlichen Betrag, um realistisch schuldenfrei zu werden.</p>
+  {% endif %}
+</div>
+
+<div class="section-title">Verlauf der Restschuld</div>
+<div class="chart-wrap">
+  <canvas id="payoffChart" height="90"></canvas>
+</div>
+
+{% if result.payoff_order %}
+<div class="section-title">Tilgungsreihenfolge ({{ strategy|title }})</div>
+<ol class="payoff-order">
+  {% for name in result.payoff_order %}<li>{{ name }} ist abbezahlt</li>{% endfor %}
+</ol>
+{% endif %}
+
+<div class="section-title">Deine Schulden</div>
+<div class="ledger">
+  {% for d in all_debts %}
+  <div class="ledger-row">
+    <div class="dot" style="background:{% if d.is_paid_off %}var(--primary){% else %}var(--alert){% endif %}"></div>
+    <div class="envelope-cell">
+      <a href="{% url 'debts:debt_detail' d.id %}" class="title">{{ d.name }}</a>
+      <div class="sub">{{ d.creditor }} · {{ d.interest_rate }}% Zins · Rate {{ d.minimum_payment|floatformat:0 }}/Mt.</div>
+      <div class="bar-track"><div class="bar-fill" style="width:{{ d.progress_percent }}%"></div></div>
+    </div>
+    <div class="amount num {% if d.is_paid_off %}positive{% else %}negative{% endif %}">
+      {{ d.current_balance|floatformat:2 }}
+      <div class="sub" style="font-size:0.72rem">von {{ d.principal|floatformat:0 }}</div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const ctx = document.getElementById('payoffChart');
+if (ctx) {
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{ chart_labels|safe }},
+      datasets: [{
+        label: 'Restschuld gesamt',
+        data: {{ chart_values|safe }},
+        borderColor: '#3A6B5E',
+        backgroundColor: 'rgba(58,107,94,0.08)',
+        fill: true,
+        tension: 0.15,
+        pointRadius: 0,
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 12, font: { family: 'IBM Plex Sans' } } },
+        y: { grid: { color: '#D9D4C0' }, ticks: { font: { family: 'IBM Plex Sans' } } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

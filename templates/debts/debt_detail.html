@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ debt.name }} — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ debt.name }}</h1>
+    <p>{{ debt.creditor }} · {{ debt.interest_rate }}% Zins p.a.</p>
+  </div>
+  <a href="{% url 'debts:debt_list' %}" class="btn secondary">Zurück</a>
+</div>
+
+<div class="sheet">
+  <div class="bar-track"><div class="bar-fill" style="width:{{ debt.progress_percent }}%"></div></div>
+  <div class="stat-row">
+    <div class="stat"><div class="hero-label">Restschuld</div><div class="value negative num">{{ debt.current_balance|floatformat:2 }}</div></div>
+    <div class="stat"><div class="hero-label">Bereits getilgt</div><div class="value positive num">{{ debt.paid_so_far|floatformat:2 }}</div></div>
+    <div class="stat"><div class="hero-label">Mindestrate</div><div class="value num">{{ debt.minimum_payment|floatformat:2 }}</div></div>
+  </div>
+</div>
+
+<div class="section-title">Zahlung erfassen</div>
+<div class="sheet" style="max-width:420px">
+  <form method="post">
+    {% csrf_token %}
+    <div class="form-row">
+      <div class="field"><label for="amount">Betrag</label><input type="text" id="amount" name="amount" required placeholder="150"></div>
+      <div class="field"><label for="date">Datum</label><input type="date" id="date" name="date" value="{{ today }}" required></div>
+    </div>
+    <div class="field"><label for="note">Notiz (optional)</label><input type="text" id="note" name="note"></div>
+    <button type="submit" class="btn">Zahlung speichern</button>
+  </form>
+</div>
+
+<div class="section-title">Zahlungsverlauf</div>
+<table class="data">
+  <thead><tr><th>Datum</th><th>Notiz</th><th style="text-align:right">Betrag</th></tr></thead>
+  <tbody>
+  {% for p in payments %}
+    <tr><td>{{ p.date }}</td><td>{{ p.note|default:"—" }}</td><td class="amount-cell positive">{{ p.amount|floatformat:2 }}</td></tr>
+  {% empty %}
+    <tr><td colspan="3"><div class="empty-state">Noch keine Zahlungen erfasst.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

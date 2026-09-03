@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Schuld erfassen — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>Schuld erfassen</h1><p>Kredit, Kreditkarte, Privatdarlehen o.ä.</p></div></div>
+<div class="sheet" style="max-width:480px">
+  <form method="post">
+    {% csrf_token %}
+    <div class="field">
+      <label for="name">Bezeichnung</label>
+      <input type="text" id="name" name="name" required placeholder="z.B. Kreditkarte Viseca">
+    </div>
+    <div class="field">
+      <label for="creditor">Gläubiger (optional)</label>
+      <input type="text" id="creditor" name="creditor" placeholder="z.B. Viseca Card Services">
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="principal">Ursprungsbetrag</label>
+        <input type="text" id="principal" name="principal" required placeholder="5000">
+      </div>
+      <div class="field">
+        <label for="current_balance">Aktuelle Restschuld</label>
+        <input type="text" id="current_balance" name="current_balance" required placeholder="3200">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="interest_rate">Zinssatz % p.a.</label>
+        <input type="text" id="interest_rate" name="interest_rate" required placeholder="9.9">
+      </div>
+      <div class="field">
+        <label for="minimum_payment">Mindestrate / Monat</label>
+        <input type="text" id="minimum_payment" name="minimum_payment" required placeholder="150">
+      </div>
+    </div>
+    <button type="submit" class="btn">Speichern</button>
+    <a href="{% url 'debts:debt_list' %}" class="btn secondary">Abbrechen</a>
+  </form>
+</div>
+{% endblock %}

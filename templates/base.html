@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}ezbudget{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'css/ezbudget.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">ezbudget<span class="slash">/</span></div>
+    <nav class="nav">
+      <a href="{% url 'core:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Übersicht</a>
+      <a href="{% url 'core:envelope_list' %}" class="{% if 'envelope' in request.resolver_match.url_name %}active{% endif %}">Umschläge</a>
+      <a href="{% url 'core:transaction_list' %}" class="{% if 'transaction' in request.resolver_match.url_name %}active{% endif %}">Buchungen</a>
+      <a href="{% url 'debts:debt_list' %}" class="{% if request.resolver_match.app_name == 'debts' %}active{% endif %}">Schulden</a>
+      <a href="{% url 'imports:import_upload' %}" class="{% if request.resolver_match.app_name == 'imports' %}active{% endif %}">Import</a>
+      <a href="{% url 'core:account_list' %}" class="{% if 'account' in request.resolver_match.url_name %}active{% endif %}">Konten</a>
+    </nav>
+    {% block sidebar_extra %}{% endblock %}
+  </aside>
+  <main class="main">
+    {% if messages %}
+    <ul class="messages">
+      {% for message in messages %}
+      <li class="{{ message.tags }}">{{ message }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

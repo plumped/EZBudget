@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ category.name }} — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ category.icon }} {{ category.name }}</h1>
+    <p><span class="badge {{ category.kind }}">{{ category.get_kind_display }}</span> · {{ month_name }}</p>
+  </div>
+  <a href="{% url 'core:envelope_list' %}" class="btn secondary">Zurück</a>
+</div>
+
+<div class="sheet">
+  <div class="bar-track"><div class="bar-fill {% if progress >= 100 %}over{% endif %}" style="width:{{ progress }}%"></div></div>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="hero-label">Budget</div>
+      <div class="value num">{{ category.monthly_budget|floatformat:2 }}</div>
+    </div>
+    <div class="stat">
+      <div class="hero-label">Ausgegeben</div>
+      <div class="value negative num">{{ spent|floatformat:2 }}</div>
+    </div>
+    <div class="stat">
+      <div class="hero-label">Verfügbar</div>
+      <div class="value {% if available < 0 %}negative{% else %}positive{% endif %} num">{{ available|floatformat:2 }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="section-title">Buchungen in diesem Umschlag</div>
+<table class="data">
+  <thead><tr><th>Datum</th><th>Beschreibung</th><th>Konto</th><th style="text-align:right">Betrag</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}
+    <tr>
+      <td>{{ t.date }}</td>
+      <td>{{ t.description|default:"—" }}</td>
+      <td>{{ t.account.name }}</td>
+      <td class="amount-cell {% if t.is_expense %}negative{% else %}positive{% endif %}">{{ t.amount|floatformat:2 }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4"><div class="empty-state">Keine Buchungen in diesem Monat.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

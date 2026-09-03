@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} — ezbudget{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ account.name }}</h1>
+    <p>{{ account.get_account_type_display }}{% if account.iban %} · {{ account.iban }}{% endif %}</p>
+  </div>
+  <a href="{% url 'core:account_list' %}" class="btn secondary">Zurück</a>
+</div>
+<div class="sheet">
+  <div class="hero-label">Saldo</div>
+  <div class="hero-figure num">{{ account.balance|floatformat:2 }}</div>
+</div>
+<div class="section-title">Letzte Buchungen</div>
+<table class="data">
+  <thead><tr><th>Datum</th><th>Beschreibung</th><th>Umschlag</th><th style="text-align:right">Betrag</th></tr></thead>
+  <tbody>
+  {% for t in transactions %}
+    <tr>
+      <td>{{ t.date }}</td>
+      <td>{{ t.description|default:"—" }}</td>
+      <td>{% if t.category %}{{ t.category.name }}{% else %}—{% endif %}</td>
+      <td class="amount-cell {% if t.is_expense %}negative{% else %}positive{% endif %}">{{ t.amount|floatformat:2 }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="4"><div class="empty-state">Keine Buchungen.</div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

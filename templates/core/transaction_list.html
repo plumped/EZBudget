@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Buchungen — ezbudget{% endblock %}
+{% block sidebar_extra %}
+<div class="month-switch">
+  <a href="?year={{ prev_year }}&month={{ prev_month }}">&larr;</a>
+  <span>{{ month_name }}</span>
+  <a href="?year={{ next_year }}&month={{ next_month }}">&rarr;</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Buchungen</h1>
+    <p>{{ month_name }}</p>
+  </div>
+  <a href="{% url 'core:transaction_add' %}" class="btn">+ Buchung erfassen</a>
+</div>
+
+<table class="data">
+  <thead>
+    <tr><th>Datum</th><th>Beschreibung</th><th>Konto</th><th>Umschlag</th><th style="text-align:right">Betrag</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for t in transactions %}
+    <tr>
+      <td>{{ t.date }}</td>
+      <td>{{ t.description|default:"—" }}{% if t.counterparty %}<div class="sub" style="color:var(--muted);font-size:0.78rem">{{ t.counterparty }}</div>{% endif %}</td>
+      <td>{{ t.account.name }}</td>
+      <td>{% if t.category %}<span class="badge {{ t.category.kind }}">{{ t.category.name }}</span>{% else %}<span class="badge">ohne</span>{% endif %}</td>
+      <td class="amount-cell {% if t.is_expense %}negative{% else %}positive{% endif %}">{{ t.amount|floatformat:2 }}</td>
+      <td>
+        <form method="post" action="{% url 'core:transaction_delete' t.id %}" onsubmit="return confirm('Buchung löschen?')">
+          {% csrf_token %}
+          <button type="submit" class="btn secondary" style="padding:3px 9px;font-size:0.75rem">löschen</button>
+        </form>
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6"><div class="empty-state">Keine Buchungen in diesem Monat. <a href="{% url 'imports:import_upload' %}">CAMT.053 importieren</a></div></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

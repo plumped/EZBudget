@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Umschläge — ezbudget{% endblock %}
+{% block sidebar_extra %}
+<div class="month-switch">
+  <a href="?year={{ prev_year }}&month={{ prev_month }}">&larr;</a>
+  <span>{{ month_name }}</span>
+  <a href="?year={{ next_year }}&month={{ next_month }}">&rarr;</a>
+</div>
+{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Umschläge</h1>
+    <p>Jeder Franken hat einen Job. Lege in der Django-Admin oder hier neue Umschläge an.</p>
+  </div>
+  <a href="/admin/core/category/add/" class="btn secondary">+ Neuer Umschlag</a>
+</div>
+
+<div class="ledger">
+  {% for row in rows %}
+  <div class="ledger-row">
+    <div class="dot" style="background:{{ row.category.color }}"></div>
+    <div class="envelope-cell">
+      <a href="{% url 'core:envelope_detail' row.category.id %}" class="title">{{ row.category.icon }} {{ row.category.name }}</a>
+      <div class="sub">
+        <span class="badge {{ row.category.kind }}">{{ row.category.get_kind_display }}</span>
+        {% if row.category.keywords %}<span class="mono">· auto: {{ row.category.keywords }}</span>{% endif %}
+      </div>
+      <div class="bar-track"><div class="bar-fill {% if row.over_budget %}over{% endif %}" style="width:{{ row.progress }}%"></div></div>
+    </div>
+    <div class="amount num {% if row.available < 0 %}negative{% else %}positive{% endif %}">
+      {{ row.available|floatformat:0 }}
+      <div class="sub" style="font-size:0.72rem">verfügbar von {{ row.category.monthly_budget|floatformat:0 }}</div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state">Noch keine Umschläge angelegt. <a href="/admin/core/category/add/">Ersten Umschlag anlegen</a></div>
+  {% endfor %}
+</div>
+{% endblock %}
