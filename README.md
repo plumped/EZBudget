@@ -204,15 +204,10 @@ geschriebene Inline-SVG-Komponente (keine zusätzliche Chart-Bibliothek).
 
 ## 6. Nächste Schritte
 
-1. **Mehrbenutzer-Datentrennung**: aktuell teilen sich alle eingeloggten Nutzer ein
-   gemeinsames Budget (passend für einen Haushalt) — getrennte Budgets pro Nutzer/Gruppe
-   wären ein separates, größeres Feature.
-2. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
+1. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
    dem aktuellen Monatsbudget zu rechnen.
-3. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach
+2. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach
    `npm run build`) über Django/WhiteNoise oder einen Reverse-Proxy vor die API schaltet,
    inkl. `DEBUG=False`, echtem `SECRET_KEY` und Postgres statt SQLite.
-4. **Frontend-Tests**: bisher nur manuell/End-to-End verifiziert — Komponenten- bzw.
+3. **Frontend-Tests**: bisher nur manuell/End-to-End verifiziert — Komponenten- bzw.
    Integrationstests (z.B. Vitest + Testing Library) wären ein sinnvoller nächster Schritt.
-5. Weitere CAMT.053-/CAMT.054-Exportvarianten anderer Banken und Länder bei Bedarf ergänzen.
-6. Benachrichtigungen (E-Mail) bei Budgetüberschreitung oder anstehenden Daueraufträgen.
