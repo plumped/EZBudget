@@ -131,10 +131,5 @@ python3 manage.py test
 
 ## 5. Nächste Schritte
 
-1. **Mehrbenutzer-Datentrennung**: aktuell teilen sich alle eingeloggten Nutzer ein
-   gemeinsames Budget (passend für einen Haushalt) — getrennte Budgets pro Nutzer/Gruppe
-   wären ein separates, größeres Feature.
-2. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
+1. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
    dem aktuellen Monatsbudget zu rechnen.
-3. Weitere CAMT.053-/CAMT.054-Exportvarianten anderer Banken und Länder bei Bedarf ergänzen.
-4. Benachrichtigungen (E-Mail) bei Budgetüberschreitung oder anstehenden Daueraufträgen.
