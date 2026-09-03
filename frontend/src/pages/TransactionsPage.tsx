@@ -59,7 +59,7 @@ export function TransactionsPage() {
             <option value="">Alle Umschläge</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.icon} {c.name}
+                {c.name}
               </option>
             ))}
           </select>
@@ -100,7 +100,7 @@ export function TransactionsPage() {
                   <td>{t.date}</td>
                   <td>{t.description || '—'}</td>
                   <td>{t.account_name}</td>
-                  <td>{t.category_name ? `${t.category_icon ?? ''} ${t.category_name}` : '—'}</td>
+                  <td>{t.category_name ?? '—'}</td>
                   <td className={`amount-cell ${t.is_expense ? 'negative' : 'positive'}`}>{formatMoney(t.amount)}</td>
                   <td>
                     <button

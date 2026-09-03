@@ -4,6 +4,7 @@ import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Category, CategoryKind } from '../api/types'
 import { FieldError } from '../components/FieldError'
+import { KindIcon } from '../components/KindIcon'
 import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
@@ -21,7 +22,6 @@ interface FormState {
   monthly_budget: string
   keywords: string
   color: string
-  icon: string
   is_archived: boolean
 }
 
@@ -31,7 +31,6 @@ const EMPTY: FormState = {
   monthly_budget: '0',
   keywords: '',
   color: '#0f172a',
-  icon: '💰',
   is_archived: false,
 }
 
@@ -56,7 +55,6 @@ export function EnvelopeFormPage() {
         monthly_budget: c.monthly_budget,
         keywords: c.keywords,
         color: c.color,
-        icon: c.icon,
         is_archived: c.is_archived,
       })
       setLoading(false)
@@ -152,14 +150,16 @@ export function EnvelopeFormPage() {
               Komma-getrennt, für den CAMT.053-Import.
             </p>
           </div>
-          <div className="form-row">
+          <div className="form-row" style={{ alignItems: 'flex-end' }}>
             <div className="field">
               <label htmlFor="color">Farbe</label>
               <input id="color" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
             </div>
-            <div className="field">
-              <label htmlFor="icon">Icon (Emoji)</label>
-              <input id="icon" value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+            <div className="field" style={{ flex: '0 0 auto' }}>
+              <label id="preview-label">Vorschau</label>
+              <div aria-labelledby="preview-label" style={{ height: 42, display: 'flex', alignItems: 'center' }}>
+                <KindIcon kind={form.kind} color={form.color} />
+              </div>
             </div>
           </div>
           <div className="field checkbox-field">

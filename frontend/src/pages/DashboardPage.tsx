@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import type { DashboardData } from '../api/types'
+import { KindIcon } from '../components/KindIcon'
 import { MonthSwitcher } from '../components/MonthSwitcher'
 import { ProgressBar } from '../components/ProgressBar'
 import { EmptyState } from '../components/EmptyState'
@@ -104,10 +105,10 @@ export function DashboardPage() {
         ) : (
           data.fixed.categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <div className="row-dot" style={{ background: c.color }} />
+              <KindIcon kind={c.kind} color={c.color} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
-                  {c.icon} {c.name}
+                  {c.name}
                 </Link>
                 <ProgressBar percent={c.progress} over={c.progress >= 100} />
               </div>
@@ -128,10 +129,10 @@ export function DashboardPage() {
         ) : (
           data.variable.categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <div className="row-dot" style={{ background: c.color }} />
+              <KindIcon kind={c.kind} color={c.color} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
-                  {c.icon} {c.name}
+                  {c.name}
                 </Link>
                 <ProgressBar percent={c.progress} over={c.progress >= 100} />
               </div>

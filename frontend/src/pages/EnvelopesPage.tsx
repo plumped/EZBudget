@@ -5,6 +5,7 @@ import api from '../api/client'
 import type { Category } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { KindBadge } from '../components/KindBadge'
+import { KindIcon } from '../components/KindIcon'
 import { MonthSwitcher } from '../components/MonthSwitcher'
 import { ProgressBar } from '../components/ProgressBar'
 import { SkeletonRows } from '../components/Skeleton'
@@ -67,10 +68,10 @@ export function EnvelopesPage() {
         <div className="row-list">
           {categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <div className="row-dot" style={{ background: c.color }} />
+              <KindIcon kind={c.kind} color={c.color} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
-                  {c.icon} {c.name}
+                  {c.name}
                 </Link>
                 <div className="row-sub">
                   <KindBadge kind={c.kind} />

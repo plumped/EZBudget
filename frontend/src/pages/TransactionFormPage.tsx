@@ -152,7 +152,7 @@ export function TransactionFormPage() {
                 <option value="">— ohne —</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
+                    {c.name}
                   </option>
                 ))}
               </select>

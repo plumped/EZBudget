@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import type { Category, Transaction } from '../api/types'
 import { KindBadge } from '../components/KindBadge'
+import { KindIcon } from '../components/KindIcon'
 import { ProgressBar } from '../components/ProgressBar'
 import { Skeleton } from '../components/Skeleton'
 import { useMonthParam } from '../utils/useMonthParam'
@@ -47,13 +48,14 @@ export function EnvelopeDetailPage() {
   return (
     <>
       <div className="page-header">
-        <div>
-          <h1>
-            {category.icon} {category.name}
-          </h1>
-          <p>
-            <KindBadge kind={category.kind} /> · {label}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <KindIcon kind={category.kind} color={category.color} />
+          <div>
+            <h1>{category.name}</h1>
+            <p>
+              <KindBadge kind={category.kind} /> · {label}
+            </p>
+          </div>
         </div>
         <Link to="/envelopes" className="btn secondary">
           <ArrowLeft size={16} weight="bold" aria-hidden="true" />
