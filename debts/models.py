@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 from django.db import models
-from django.urls import reverse
 
 
 class Debt(models.Model):
@@ -23,9 +22,6 @@ class Debt(models.Model):
 
     def __str__(self):
         return self.name
-
-    def get_absolute_url(self):
-        return reverse("debts:debt_detail", args=[self.pk])
 
     @property
     def paid_so_far(self):

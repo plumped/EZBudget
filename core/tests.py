@@ -109,13 +109,157 @@ class GenerateDueRecurringTests(TestCase):
 
 
 class LoginRequiredTests(TestCase):
-    def test_dashboard_redirects_anonymous_user_to_login(self):
-        response = self.client.get("/")
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/login/", response["Location"])
+    def test_dashboard_api_rejects_anonymous_user(self):
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, 403)
 
-    def test_dashboard_reachable_when_logged_in(self):
+    def test_dashboard_api_reachable_when_logged_in(self):
         User.objects.create_user(username="tester", password="testpass12345")
         self.client.login(username="tester", password="testpass12345")
-        response = self.client.get("/")
+        response = self.client.get("/api/dashboard/")
         self.assertEqual(response.status_code, 200)
+
+
+class AuthApiTests(TestCase):
+    def test_signup_creates_user_and_logs_in(self):
+        response = self.client.post(
+            "/api/auth/signup/",
+            {"username": "neu", "password": "SuperSecret123!", "email": ""},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(User.objects.filter(username="neu").exists())
+        # Session ist direkt eingeloggt
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["username"], "neu")
+
+    def test_signup_rejects_weak_password(self):
+        response = self.client.post(
+            "/api/auth/signup/", {"username": "x", "password": "123"}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_with_wrong_password_fails(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        response = self.client.post(
+            "/api/auth/login/", {"username": "tester", "password": "falsch"}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_login_then_logout(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        response = self.client.post(
+            "/api/auth/login/", {"username": "tester", "password": "testpass12345"}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        response = self.client.post("/api/auth/logout/")
+        self.assertEqual(response.status_code, 204)
+        response = self.client.get("/api/auth/me/")
+        self.assertEqual(response.status_code, 403)
+
+
+class AccountApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_create_list_and_archive_account(self):
+        response = self.client.post(
+            "/api/accounts/",
+            {"name": "Girokonto", "account_type": "checking", "starting_balance": "100"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        account_id = response.json()["id"]
+        self.assertEqual(response.json()["balance"], "100.00")
+
+        response = self.client.get("/api/accounts/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+        response = self.client.post(f"/api/accounts/{account_id}/archive_toggle/")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["is_archived"])
+
+        response = self.client.get("/api/accounts/", {"active_only": "1"})
+        self.assertEqual(response.json(), [])
+
+
+class CategoryApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+
+    def test_category_exposes_month_computed_fields(self):
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Lebensmittel", "kind": "variable", "monthly_budget": "300", "color": "#123456", "icon": "🛒"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        category_id = response.json()["id"]
+
+        Transaction.objects.create(
+            account=self.account, category_id=category_id, date=date(2026, 9, 5), amount=Decimal("-50")
+        )
+
+        response = self.client.get(f"/api/categories/{category_id}/", {"year": 2026, "month": 9})
+        data = response.json()
+        self.assertEqual(data["spent"], "50")
+        self.assertEqual(data["available"], "250.00")
+
+
+class TransactionApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+        self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+
+    def test_create_and_filter_transactions_by_month_and_category(self):
+        self.client.post(
+            "/api/transactions/",
+            {"account": self.account.id, "category": self.category.id, "date": "2026-09-05", "amount": "-20"},
+            content_type="application/json",
+        )
+        self.client.post(
+            "/api/transactions/",
+            {"account": self.account.id, "date": "2026-08-05", "amount": "-10"},
+            content_type="application/json",
+        )
+
+        response = self.client.get("/api/transactions/", {"year": 2026, "month": 9, "category": self.category.id})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["amount"], "-20.00")
+
+    def test_delete_transaction(self):
+        response = self.client.post(
+            "/api/transactions/",
+            {"account": self.account.id, "date": "2026-09-05", "amount": "-20"},
+            content_type="application/json",
+        )
+        txn_id = response.json()["id"]
+        response = self.client.delete(f"/api/transactions/{txn_id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Transaction.objects.filter(id=txn_id).exists())
+
+
+class RecurringApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+
+    def test_generate_action_creates_due_transactions(self):
+        self.client.post(
+            "/api/recurring/",
+            {"account": self.account.id, "description": "Abo", "amount": "-9.90", "day_of_month": 1},
+            content_type="application/json",
+        )
+        response = self.client.post("/api/recurring/generate/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["created_count"], 1)
+        self.assertEqual(Transaction.objects.count(), 1)

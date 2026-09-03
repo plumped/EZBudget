@@ -1,15 +1,9 @@
 from django.contrib import admin
-from django.contrib.auth import views as auth_views
 from django.urls import include, path
-
-from core.views import signup
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
-    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("signup/", signup, name="signup"),
-    path("", include("core.urls")),
-    path("schulden/", include("debts.urls")),
-    path("import/", include("imports_camt.urls")),
+    path("api/", include("core.api_urls")),
+    path("api/debts/", include("debts.api_urls")),
+    path("api/import/", include("imports_camt.api_urls")),
 ]

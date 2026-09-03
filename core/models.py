@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.urls import reverse
 
 
 class Account(models.Model):
@@ -31,9 +30,6 @@ class Account(models.Model):
     def balance(self):
         agg = self.transactions.aggregate(total=models.Sum("amount"))["total"] or Decimal("0")
         return self.starting_balance + agg
-
-    def get_absolute_url(self):
-        return reverse("core:account_detail", args=[self.pk])
 
 
 class Category(models.Model):

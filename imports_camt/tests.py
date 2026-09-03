@@ -2,10 +2,13 @@ import io
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
-from core.models import Category
+from core.models import Account, Category, Transaction
 from .camt053 import Camt053ParseError, parse_camt053, suggest_category
+from .models import ImportBatch
 
 SAMPLE_DIR = settings.BASE_DIR / "sample_data"
 
@@ -96,3 +99,74 @@ class SuggestCategoryTests(TestCase):
         cats = [self.groceries, self.rent]
         result = suggest_category("Kino Tickets", "Pathe AG", cats)
         self.assertIsNone(result)
+
+
+class ImportApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+        self.category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, keywords="migros"
+        )
+
+    def _upload(self, name):
+        with open(SAMPLE_DIR / name, "rb") as f:
+            content = f.read()
+        return SimpleUploadedFile(name, content, content_type="application/xml")
+
+    def test_parse_view_returns_preview_rows_with_suggestion_and_no_side_effects(self):
+        response = self.client.post(
+            "/api/import/parse/",
+            {"account": self.account.id, "camt_file": self._upload("beispiel_camt053.xml")},
+        )
+        self.assertEqual(response.status_code, 200)
+        rows = response.json()["rows"]
+        self.assertEqual(len(rows), 3)
+        migros_row = next(r for r in rows if "Migros" in r["description"])
+        self.assertEqual(migros_row["suggested_category_id"], self.category.id)
+        self.assertFalse(migros_row["is_duplicate"])
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_parse_view_flags_duplicates_against_existing_transactions(self):
+        Transaction.objects.create(
+            account=self.account, date="2026-09-02", amount=Decimal("-84.30"), import_ref="REF-1001"
+        )
+        response = self.client.post(
+            "/api/import/parse/",
+            {"account": self.account.id, "camt_file": self._upload("beispiel_camt053.xml")},
+        )
+        rows = response.json()["rows"]
+        dup_row = next(r for r in rows if r["entry_ref"] == "REF-1001")
+        self.assertTrue(dup_row["is_duplicate"])
+
+    def test_confirm_view_creates_transactions_and_import_batch(self):
+        rows = [
+            {
+                "date": "2026-09-02", "amount": "-84.30", "description": "Einkauf Migros",
+                "counterparty": "Migros", "entry_ref": "REF-1001", "category_id": self.category.id,
+                "include": True, "is_duplicate": False,
+            },
+            {
+                "date": "2026-09-01", "amount": "4200.00", "description": "Lohn",
+                "counterparty": "AG", "entry_ref": "REF-1002", "category_id": None,
+                "include": False, "is_duplicate": False,
+            },
+        ]
+        response = self.client.post(
+            "/api/import/confirm/",
+            {"account": self.account.id, "filename": "beispiel_camt053.xml", "rows": rows},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["created"], 1)
+        self.assertEqual(Transaction.objects.count(), 1)
+        self.assertEqual(ImportBatch.objects.count(), 1)
+        self.assertEqual(Transaction.objects.get().category_id, self.category.id)
+
+    def test_history_view_lists_batches(self):
+        ImportBatch.objects.create(account=self.account, filename="a.xml", transactions_created=2, transactions_skipped=1)
+        response = self.client.get("/api/import/history/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]["account_name"], "Girokonto")

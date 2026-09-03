@@ -1,8 +1,10 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib.auth.models import User
 from django.test import TestCase
 
+from .models import Debt
 from .services import simulate_payoff
 
 
@@ -65,3 +67,63 @@ class SimulatePayoffTests(TestCase):
         result = simulate_payoff(debts, strategy="avalanche", max_months=6)
         self.assertTrue(result.reached_max)
         self.assertEqual(result.months, 6)
+
+
+class DebtApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_create_debt_and_record_payment_reduces_balance(self):
+        response = self.client.post(
+            "/api/debts/",
+            {
+                "name": "Kreditkarte",
+                "principal": "1000",
+                "current_balance": "1000",
+                "interest_rate": "10",
+                "minimum_payment": "100",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        debt_id = response.json()["id"]
+
+        response = self.client.post(
+            f"/api/debts/{debt_id}/payments/", {"date": "2026-09-05", "amount": "100"}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["debt"]["current_balance"], "900.00")
+        self.assertEqual(Debt.objects.get(id=debt_id).current_balance, Decimal("900"))
+
+    def test_delete_debt(self):
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("100"), current_balance=Decimal("100"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("10"),
+        )
+        response = self.client.delete(f"/api/debts/{debt.id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Debt.objects.filter(id=debt.id).exists())
+
+
+class PayoffApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_payoff_endpoint_returns_schedule_for_open_debts(self):
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/payoff/", {"strategy": "avalanche", "extra": "50"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["strategy"], "avalanche")
+        self.assertGreater(len(data["schedule"]), 0)
+        self.assertEqual(data["payoff_order"], ["Kredit"])
+
+    def test_payoff_endpoint_rejects_anonymous_user(self):
+        self.client.logout()
+        response = self.client.get("/api/debts/payoff/")
+        self.assertEqual(response.status_code, 403)

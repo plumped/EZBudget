@@ -1,0 +1,83 @@
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Debt, DebtPayment
+from .serializers import DebtPaymentSerializer, DebtSerializer
+from .services import simulate_payoff
+
+
+class DebtViewSet(viewsets.ModelViewSet):
+    queryset = Debt.objects.all()
+    serializer_class = DebtSerializer
+
+    def get_queryset(self):
+        qs = Debt.objects.all()
+        if self.request.query_params.get("open_only") == "1":
+            qs = qs.filter(is_paid_off=False)
+        return qs
+
+    @action(detail=True, methods=["get", "post"])
+    def payments(self, request, pk=None):
+        debt = self.get_object()
+        if request.method == "POST":
+            serializer = DebtPaymentSerializer(data={**request.data, "debt": debt.id})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            debt.refresh_from_db()
+            return Response(
+                {"debt": DebtSerializer(debt).data, "payment": serializer.data},
+                status=status.HTTP_201_CREATED,
+            )
+        payments = debt.payments.all()
+        return Response(DebtPaymentSerializer(payments, many=True).data)
+
+
+class PayoffSimulationView(APIView):
+    def get(self, request):
+        strategy = request.query_params.get("strategy", "avalanche")
+        if strategy not in ("avalanche", "snowball"):
+            strategy = "avalanche"
+        try:
+            extra_budget = Decimal(str(request.query_params.get("extra", "0")).replace(",", "."))
+        except InvalidOperation:
+            extra_budget = Decimal("0")
+
+        debts = Debt.objects.filter(is_paid_off=False)
+        total_balance = sum((d.current_balance for d in debts), Decimal("0"))
+        total_minimum = sum((d.minimum_payment for d in debts), Decimal("0"))
+
+        debt_dicts = [
+            {
+                "id": d.id,
+                "name": d.name,
+                "balance": d.current_balance,
+                "rate": d.interest_rate,
+                "minimum": d.minimum_payment,
+            }
+            for d in debts
+        ]
+        result = simulate_payoff(debt_dicts, strategy=strategy, extra_budget=extra_budget, start_date=date.today())
+
+        return Response(
+            {
+                "strategy": strategy,
+                "extra_budget": str(extra_budget),
+                "total_balance": str(total_balance),
+                "total_minimum": str(total_minimum),
+                "total_monthly": str(total_minimum + extra_budget),
+                "months": result.months,
+                "total_interest": str(result.total_interest.quantize(Decimal("0.01"))),
+                "payoff_order": result.payoff_order,
+                "debt_free_date": result.debt_free_date,
+                "reached_max": result.reached_max,
+                "schedule": [
+                    {"month": row["month"], "total_balance": str(row["total_balance"].quantize(Decimal("0.01")))}
+                    for row in result.schedule
+                ],
+            }
+        )
