@@ -1,3 +1,4 @@
+import { Plus, Trash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -5,6 +6,7 @@ import { extractErrorMessage } from '../api/errors'
 import type { Category, Transaction } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { MonthSwitcher } from '../components/MonthSwitcher'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatMoney } from '../utils/format'
@@ -62,13 +64,18 @@ export function TransactionsPage() {
             ))}
           </select>
           <Link to="/transactions/add" className="btn secondary">
-            + Buchung erfassen
+            <Plus size={16} weight="bold" aria-hidden="true" />
+            Buchung erfassen
           </Link>
         </div>
       </div>
 
       {loading ? (
-        <div className="loading-shell">Lädt …</div>
+        <div className="table-wrap" aria-busy="true">
+          <div style={{ padding: 20 }}>
+            <Skeleton lines={6} />
+          </div>
+        </div>
       ) : transactions.length === 0 ? (
         <EmptyState>
           Noch keine Buchungen. <Link to="/import">CAMT.053 importieren</Link> oder{' '}
@@ -96,7 +103,13 @@ export function TransactionsPage() {
                   <td>{t.category_name ? `${t.category_icon ?? ''} ${t.category_name}` : '—'}</td>
                   <td className={`amount-cell ${t.is_expense ? 'negative' : 'positive'}`}>{formatMoney(t.amount)}</td>
                   <td>
-                    <button type="button" className="link-action danger" onClick={() => void handleDelete(t.id)}>
+                    <button
+                      type="button"
+                      className="link-action danger"
+                      onClick={() => void handleDelete(t.id)}
+                      aria-label={`Buchung „${t.description || t.date}“ löschen`}
+                    >
+                      <Trash size={14} weight="bold" aria-hidden="true" />
                       löschen
                     </button>
                   </td>

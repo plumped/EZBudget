@@ -1,3 +1,4 @@
+import { ArrowRight } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -5,6 +6,7 @@ import type { DashboardData } from '../api/types'
 import { MonthSwitcher } from '../components/MonthSwitcher'
 import { ProgressBar } from '../components/ProgressBar'
 import { EmptyState } from '../components/EmptyState'
+import { Skeleton, SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatMoney, moneyClass } from '../utils/format'
@@ -37,7 +39,21 @@ export function DashboardPage() {
   }, [year, month])
 
   if (loading || !data) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div aria-busy="true">
+        <div className="page-header">
+          <div>
+            <h1>Übersicht</h1>
+            <p>Dein Geld auf einen Blick.</p>
+          </div>
+        </div>
+        <div className="card">
+          <Skeleton lines={3} />
+        </div>
+        <div className="section-title">Fixkosten</div>
+        <SkeletonRows count={3} />
+      </div>
+    )
   }
 
   return (
@@ -130,7 +146,9 @@ export function DashboardPage() {
           <div className="section-title">
             Schulden{' '}
             <span className="tag">
-              <Link to="/debts">Tilgungsplan ansehen →</Link>
+              <Link to="/debts">
+                Tilgungsplan ansehen <ArrowRight size={14} weight="bold" aria-hidden="true" />
+              </Link>
             </span>
           </div>
           <div className="card">
@@ -151,7 +169,9 @@ export function DashboardPage() {
       <div className="section-title">
         Letzte Buchungen{' '}
         <span className="tag">
-          <Link to="/transactions">alle ansehen →</Link>
+          <Link to="/transactions">
+            alle ansehen <ArrowRight size={14} weight="bold" aria-hidden="true" />
+          </Link>
         </span>
       </div>
       <div className="row-list">

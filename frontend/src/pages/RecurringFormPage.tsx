@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
-import { extractErrorMessage } from '../api/errors'
+import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Account, Category, RecurringTransaction } from '../api/types'
+import { FieldError } from '../components/FieldError'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
 interface FormState {
@@ -34,8 +36,9 @@ export function RecurringFormPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [form, setForm] = useState<FormState>(EMPTY)
   const [loading, setLoading] = useState(!isNew)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
+  const generalErrorRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => {
@@ -64,7 +67,7 @@ export function RecurringFormPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
+    setErrors({ fields: {} })
     setSubmitting(true)
     try {
       const payload = {
@@ -85,14 +88,20 @@ export function RecurringFormPage() {
       }
       navigate('/recurring')
     } catch (err) {
-      setError(extractErrorMessage(err))
+      const fieldErrors = extractFieldErrors(err)
+      setErrors(fieldErrors)
+      queueMicrotask(() => generalErrorRef.current?.focus())
     } finally {
       setSubmitting(false)
     }
   }
 
   if (loading) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+        <Skeleton lines={6} />
+      </div>
+    )
   }
 
   return (
@@ -104,7 +113,7 @@ export function RecurringFormPage() {
         </div>
       </div>
       <div className="card" style={{ maxWidth: 480 }}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="description">Beschreibung</label>
             <input
@@ -112,12 +121,23 @@ export function RecurringFormPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               required
+              aria-invalid={errors.fields.description ? 'true' : undefined}
+              aria-describedby={errors.fields.description ? 'description-error' : undefined}
             />
+            {errors.fields.description && <FieldError id="description-error" message={errors.fields.description} />}
           </div>
           <div className="form-row">
             <div className="field">
               <label htmlFor="amount">Betrag (negativ = Ausgabe)</label>
-              <input id="amount" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} required />
+              <input
+                id="amount"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                required
+                aria-invalid={errors.fields.amount ? 'true' : undefined}
+                aria-describedby={errors.fields.amount ? 'amount-error' : undefined}
+              />
+              {errors.fields.amount && <FieldError id="amount-error" message={errors.fields.amount} />}
             </div>
             <div className="field">
               <label htmlFor="day">Tag im Monat</label>
@@ -129,7 +149,10 @@ export function RecurringFormPage() {
                 value={form.day_of_month}
                 onChange={(e) => setForm({ ...form, day_of_month: e.target.value })}
                 required
+                aria-invalid={errors.fields.day_of_month ? 'true' : undefined}
+                aria-describedby={errors.fields.day_of_month ? 'day-error' : undefined}
               />
+              {errors.fields.day_of_month && <FieldError id="day-error" message={errors.fields.day_of_month} />}
             </div>
           </div>
           <div className="field">
@@ -168,7 +191,11 @@ export function RecurringFormPage() {
             />
             <label htmlFor="active">Aktiv</label>
           </div>
-          {error && <p className="error-text">{error}</p>}
+          {errors.general && (
+            <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
+              {errors.general}
+            </p>
+          )}
           <div className="form-actions">
             <button type="submit" className="btn" disabled={submitting}>
               Speichern

@@ -1,9 +1,12 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { ArrowLeft, Trash } from '@phosphor-icons/react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
-import { extractErrorMessage } from '../api/errors'
+import { extractErrorMessage, extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Debt, DebtPayment } from '../api/types'
+import { FieldError } from '../components/FieldError'
 import { ProgressBar } from '../components/ProgressBar'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { formatMoney } from '../utils/format'
 
@@ -17,8 +20,9 @@ export function DebtDetailPage() {
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
+  const generalErrorRef = useRef<HTMLParagraphElement>(null)
 
   function load() {
     setLoading(true)
@@ -37,7 +41,7 @@ export function DebtDetailPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
+    setErrors({ fields: {} })
     setSubmitting(true)
     try {
       await api.post(`/debts/${id}/payments/`, { date, amount, note })
@@ -46,7 +50,9 @@ export function DebtDetailPage() {
       setNote('')
       void load()
     } catch (err) {
-      setError(extractErrorMessage(err))
+      const fieldErrors = extractFieldErrors(err)
+      setErrors(fieldErrors)
+      queueMicrotask(() => generalErrorRef.current?.focus())
     } finally {
       setSubmitting(false)
     }
@@ -64,7 +70,11 @@ export function DebtDetailPage() {
   }
 
   if (loading || !debt) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div className="card" aria-busy="true">
+        <Skeleton lines={4} />
+      </div>
+    )
   }
 
   return (
@@ -76,9 +86,11 @@ export function DebtDetailPage() {
         </div>
         <div className="page-header-actions">
           <Link to="/debts" className="btn secondary">
+            <ArrowLeft size={16} weight="bold" aria-hidden="true" />
             Zurück
           </Link>
           <button type="button" className="btn danger" onClick={() => void handleDelete()}>
+            <Trash size={16} weight="bold" aria-hidden="true" />
             Löschen
           </button>
         </div>
@@ -108,22 +120,44 @@ export function DebtDetailPage() {
 
       <div className="section-title">Zahlung erfassen</div>
       <div className="card" style={{ maxWidth: 480 }}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-row">
             <div className="field">
               <label htmlFor="amount">Betrag</label>
-              <input id="amount" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="100" />
+              <input
+                id="amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                placeholder="100"
+                aria-invalid={errors.fields.amount ? 'true' : undefined}
+                aria-describedby={errors.fields.amount ? 'amount-error' : undefined}
+              />
+              {errors.fields.amount && <FieldError id="amount-error" message={errors.fields.amount} />}
             </div>
             <div className="field">
               <label htmlFor="date">Datum</label>
-              <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+                aria-invalid={errors.fields.date ? 'true' : undefined}
+                aria-describedby={errors.fields.date ? 'date-error' : undefined}
+              />
+              {errors.fields.date && <FieldError id="date-error" message={errors.fields.date} />}
             </div>
           </div>
           <div className="field">
             <label htmlFor="note">Notiz (optional)</label>
             <input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="z.B. Monatsrate" />
           </div>
-          {error && <p className="error-text">{error}</p>}
+          {errors.general && (
+            <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
+              {errors.general}
+            </p>
+          )}
           <button type="submit" className="btn" disabled={submitting}>
             Zahlung erfassen
           </button>

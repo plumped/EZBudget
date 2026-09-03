@@ -1,3 +1,4 @@
+import { CheckCircle, Info, WarningCircle } from '@phosphor-icons/react'
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react'
 
 type ToastType = 'success' | 'error' | 'info'
@@ -11,6 +12,12 @@ interface ToastItem {
 type PushToast = (type: ToastType, text: string) => void
 
 const ToastContext = createContext<PushToast | undefined>(undefined)
+
+const ICONS: Record<ToastType, typeof CheckCircle> = {
+  success: CheckCircle,
+  error: WarningCircle,
+  info: Info,
+}
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
@@ -28,11 +35,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={push}>
       {children}
       <div className="toast-list">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.type}`}>
-            {t.text}
-          </div>
-        ))}
+        {toasts.map((t) => {
+          const ToastIcon = ICONS[t.type]
+          return (
+            <div key={t.id} className={`toast ${t.type}`} role={t.type === 'error' ? 'alert' : 'status'} aria-live="polite">
+              <ToastIcon size={18} weight="fill" className="icon" aria-hidden="true" />
+              <span>{t.text}</span>
+            </div>
+          )
+        })}
       </div>
     </ToastContext.Provider>
   )

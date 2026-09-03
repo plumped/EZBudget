@@ -1,7 +1,9 @@
+import { ArrowLeft } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import type { Account, Transaction } from '../api/types'
+import { Skeleton } from '../components/Skeleton'
 import { formatMoney, moneyClass } from '../utils/format'
 
 export function AccountDetailPage() {
@@ -31,7 +33,11 @@ export function AccountDetailPage() {
   }, [id])
 
   if (loading || !account) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div className="card" aria-busy="true">
+        <Skeleton lines={3} />
+      </div>
+    )
   }
 
   return (
@@ -42,6 +48,7 @@ export function AccountDetailPage() {
           <p>{account.iban || 'Keine IBAN hinterlegt'}</p>
         </div>
         <Link to="/accounts" className="btn secondary">
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
           Zurück
         </Link>
       </div>

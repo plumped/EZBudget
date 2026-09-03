@@ -1,9 +1,11 @@
+import { ArrowsClockwise, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage } from '../api/errors'
 import type { RecurringTransaction } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { formatMoney } from '../utils/format'
 
@@ -53,16 +55,18 @@ export function RecurringPage() {
         </div>
         <div className="page-header-actions">
           <button type="button" className="btn secondary" onClick={() => void handleGenerate()}>
+            <ArrowsClockwise size={16} weight="bold" aria-hidden="true" />
             Jetzt generieren
           </button>
           <Link to="/recurring/new" className="btn secondary">
-            + Neu
+            <Plus size={16} weight="bold" aria-hidden="true" />
+            Neu
           </Link>
         </div>
       </div>
 
       {loading ? (
-        <div className="loading-shell">Lädt …</div>
+        <SkeletonRows count={4} />
       ) : recurring.length === 0 ? (
         <EmptyState>
           Noch keine Daueraufträge. <Link to="/recurring/new">Ersten anlegen</Link>
@@ -71,7 +75,7 @@ export function RecurringPage() {
         <div className="row-list">
           {recurring.map((rt) => (
             <div className="row-item" key={rt.id}>
-              <div className="row-dot" style={{ background: rt.category_color ?? '#98a2b3' }} />
+              <div className="row-dot" style={{ background: rt.category_color ?? 'var(--color-faint-fg)' }} />
               <div className="row-main">
                 <span className="row-title">{rt.description}</span>
                 <div className="row-sub">
@@ -79,9 +83,11 @@ export function RecurringPage() {
                   {rt.category_name ? ` · ${rt.category_name}` : ''}
                   {!rt.is_active && <span className="badge">pausiert</span>}
                   <Link to={`/recurring/${rt.id}/edit`} className="link-action">
+                    <PencilSimple size={12} weight="bold" aria-hidden="true" />
                     bearbeiten
                   </Link>
                   <button type="button" className="link-action danger" onClick={() => void handleDelete(rt.id, rt.description)}>
+                    <Trash size={12} weight="bold" aria-hidden="true" />
                     löschen
                   </button>
                 </div>

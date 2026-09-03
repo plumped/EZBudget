@@ -1,8 +1,10 @@
+import { UploadSimple } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import type { ImportBatch } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
+import { Skeleton } from '../components/Skeleton'
 
 export function ImportHistoryPage() {
   const [batches, setBatches] = useState<ImportBatch[]>([])
@@ -23,12 +25,17 @@ export function ImportHistoryPage() {
           <p>Bisherige CAMT.053-Importe.</p>
         </div>
         <Link to="/import" className="btn secondary">
+          <UploadSimple size={16} weight="bold" aria-hidden="true" />
           Neuer Import
         </Link>
       </div>
 
       {loading ? (
-        <div className="loading-shell">Lädt …</div>
+        <div className="table-wrap" aria-busy="true">
+          <div style={{ padding: 20 }}>
+            <Skeleton lines={4} />
+          </div>
+        </div>
       ) : batches.length === 0 ? (
         <EmptyState>Noch keine Importe durchgeführt.</EmptyState>
       ) : (

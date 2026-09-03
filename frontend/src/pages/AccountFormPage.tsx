@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
-import { extractErrorMessage } from '../api/errors'
+import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Account, AccountType } from '../api/types'
+import { FieldError } from '../components/FieldError'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
@@ -35,8 +37,9 @@ export function AccountFormPage() {
   const push = useToast()
   const [form, setForm] = useState<FormState>(EMPTY)
   const [loading, setLoading] = useState(!isNew)
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
+  const generalErrorRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -55,7 +58,7 @@ export function AccountFormPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
+    setErrors({ fields: {} })
     setSubmitting(true)
     try {
       if (isNew) {
@@ -67,14 +70,20 @@ export function AccountFormPage() {
       }
       navigate('/accounts')
     } catch (err) {
-      setError(extractErrorMessage(err))
+      const fieldErrors = extractFieldErrors(err)
+      setErrors(fieldErrors)
+      queueMicrotask(() => generalErrorRef.current?.focus())
     } finally {
       setSubmitting(false)
     }
   }
 
   if (loading) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+        <Skeleton lines={5} />
+      </div>
+    )
   }
 
   return (
@@ -86,10 +95,18 @@ export function AccountFormPage() {
         </div>
       </div>
       <div className="card" style={{ maxWidth: 480 }}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="name">Name</label>
-            <input id="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+            <input
+              id="name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+              aria-invalid={errors.fields.name ? 'true' : undefined}
+              aria-describedby={errors.fields.name ? 'name-error' : undefined}
+            />
+            {errors.fields.name && <FieldError id="name-error" message={errors.fields.name} />}
           </div>
           <div className="form-row">
             <div className="field">
@@ -113,12 +130,22 @@ export function AccountFormPage() {
                 value={form.starting_balance}
                 onChange={(e) => setForm({ ...form, starting_balance: e.target.value })}
                 required
+                aria-invalid={errors.fields.starting_balance ? 'true' : undefined}
+                aria-describedby={errors.fields.starting_balance ? 'balance-error' : undefined}
               />
+              {errors.fields.starting_balance && <FieldError id="balance-error" message={errors.fields.starting_balance} />}
             </div>
           </div>
           <div className="field">
             <label htmlFor="iban">IBAN (optional)</label>
-            <input id="iban" value={form.iban} onChange={(e) => setForm({ ...form, iban: e.target.value })} />
+            <input
+              id="iban"
+              value={form.iban}
+              onChange={(e) => setForm({ ...form, iban: e.target.value })}
+              aria-invalid={errors.fields.iban ? 'true' : undefined}
+              aria-describedby={errors.fields.iban ? 'iban-error' : undefined}
+            />
+            {errors.fields.iban && <FieldError id="iban-error" message={errors.fields.iban} />}
           </div>
           <div className="field checkbox-field">
             <input
@@ -129,7 +156,11 @@ export function AccountFormPage() {
             />
             <label htmlFor="archived">Archiviert</label>
           </div>
-          {error && <p className="error-text">{error}</p>}
+          {errors.general && (
+            <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
+              {errors.general}
+            </p>
+          )}
           <div className="form-actions">
             <button type="submit" className="btn" disabled={submitting}>
               Speichern

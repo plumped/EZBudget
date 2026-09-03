@@ -1,8 +1,10 @@
+import { ClockCounterClockwise } from '@phosphor-icons/react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage } from '../api/errors'
 import type { Account, Category, ImportRow } from '../api/types'
+import { FieldError } from '../components/FieldError'
 import { useToast } from '../context/ToastContext'
 import { formatMoney } from '../utils/format'
 
@@ -107,13 +109,14 @@ export function ImportPage() {
           <p>ISO-20022-Kontoauszug hochladen und Buchungen prüfen.</p>
         </div>
         <Link to="/import/history" className="btn secondary">
+          <ClockCounterClockwise size={16} weight="bold" aria-hidden="true" />
           Import-Historie
         </Link>
       </div>
 
       {!rows ? (
         <div className="card" style={{ maxWidth: 480 }}>
-          <form onSubmit={handleParse}>
+          <form onSubmit={handleParse} noValidate>
             <div className="field">
               <label htmlFor="account">Konto</label>
               <select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
@@ -128,7 +131,7 @@ export function ImportPage() {
               <label htmlFor="file">CAMT.053-XML-Datei</label>
               <input id="file" type="file" accept=".xml" onChange={handleFileChange} required />
             </div>
-            {error && <p className="error-text">{error}</p>}
+            {error && <FieldError id="file-error" message={error} />}
             <button type="submit" className="btn" disabled={parsing}>
               {parsing ? 'Datei wird geprüft …' : 'Datei prüfen'}
             </button>

@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../api/client'
-import { extractErrorMessage } from '../api/errors'
+import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Account, Category } from '../api/types'
+import { FieldError } from '../components/FieldError'
 import { useToast } from '../context/ToastContext'
 
 export function TransactionFormPage() {
@@ -17,8 +18,9 @@ export function TransactionFormPage() {
   const [counterparty, setCounterparty] = useState('')
   const [accountId, setAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
+  const generalErrorRef = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
     api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => {
@@ -30,7 +32,7 @@ export function TransactionFormPage() {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    setError(null)
+    setErrors({ fields: {} })
     setSubmitting(true)
     try {
       const numeric = Math.abs(parseFloat(amount.replace(',', '.')) || 0)
@@ -46,7 +48,9 @@ export function TransactionFormPage() {
       push('success', 'Buchung gespeichert.')
       navigate('/transactions')
     } catch (err) {
-      setError(extractErrorMessage(err))
+      const fieldErrors = extractFieldErrors(err)
+      setErrors(fieldErrors)
+      queueMicrotask(() => generalErrorRef.current?.focus())
     } finally {
       setSubmitting(false)
     }
@@ -61,14 +65,15 @@ export function TransactionFormPage() {
         </div>
       </div>
       <div className="card" style={{ maxWidth: 480 }}>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="field">
-            <label>Richtung</label>
-            <div className="toggle-group" style={{ width: '100%' }}>
+            <label id="direction-label">Richtung</label>
+            <div className="toggle-group" style={{ width: '100%' }} role="group" aria-labelledby="direction-label">
               <button
                 type="button"
                 className={direction === 'expense' ? 'active' : ''}
                 style={{ flex: 1 }}
+                aria-pressed={direction === 'expense'}
                 onClick={() => setDirection('expense')}
               >
                 Ausgabe
@@ -77,6 +82,7 @@ export function TransactionFormPage() {
                 type="button"
                 className={direction === 'income' ? 'active' : ''}
                 style={{ flex: 1 }}
+                aria-pressed={direction === 'income'}
                 onClick={() => setDirection('income')}
               >
                 Einnahme
@@ -86,11 +92,29 @@ export function TransactionFormPage() {
           <div className="form-row">
             <div className="field">
               <label htmlFor="amount">Betrag (CHF)</label>
-              <input id="amount" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="42.50" />
+              <input
+                id="amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                required
+                placeholder="42.50"
+                aria-invalid={errors.fields.amount ? 'true' : undefined}
+                aria-describedby={errors.fields.amount ? 'amount-error' : undefined}
+              />
+              {errors.fields.amount && <FieldError id="amount-error" message={errors.fields.amount} />}
             </div>
             <div className="field">
               <label htmlFor="date">Datum</label>
-              <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+                aria-invalid={errors.fields.date ? 'true' : undefined}
+                aria-describedby={errors.fields.date ? 'date-error' : undefined}
+              />
+              {errors.fields.date && <FieldError id="date-error" message={errors.fields.date} />}
             </div>
           </div>
           <div className="field">
@@ -134,7 +158,11 @@ export function TransactionFormPage() {
               </select>
             </div>
           </div>
-          {error && <p className="error-text">{error}</p>}
+          {errors.general && (
+            <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
+              {errors.general}
+            </p>
+          )}
           <div className="form-actions">
             <button type="submit" className="btn" disabled={submitting}>
               Buchung speichern

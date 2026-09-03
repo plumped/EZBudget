@@ -1,3 +1,4 @@
+import { ChartLineDown, Plus } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -5,6 +6,7 @@ import type { Debt, PayoffResult, PayoffStrategy } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { PayoffChart } from '../components/PayoffChart'
 import { ProgressBar } from '../components/ProgressBar'
+import { Skeleton, SkeletonRows } from '../components/Skeleton'
 import { formatDate, formatMoney } from '../utils/format'
 
 export function DebtsPage() {
@@ -38,7 +40,14 @@ export function DebtsPage() {
   }
 
   if (loading) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div aria-busy="true">
+        <div className="card">
+          <Skeleton lines={4} />
+        </div>
+        <SkeletonRows count={2} />
+      </div>
+    )
   }
 
   return (
@@ -49,7 +58,8 @@ export function DebtsPage() {
           <p>Tilgungsplan nach Avalanche- oder Snowball-Strategie.</p>
         </div>
         <Link to="/debts/new" className="btn secondary">
-          + Schuld erfassen
+          <Plus size={16} weight="bold" aria-hidden="true" />
+          Schuld erfassen
         </Link>
       </div>
 
@@ -81,12 +91,13 @@ export function DebtsPage() {
 
             <div className="form-row" style={{ marginTop: 24, alignItems: 'flex-end' }}>
               <div className="field" style={{ minWidth: 220 }}>
-                <label>Strategie</label>
-                <div className="toggle-group" style={{ width: '100%' }}>
+                <label id="strategy-label">Strategie</label>
+                <div className="toggle-group" style={{ width: '100%' }} role="group" aria-labelledby="strategy-label">
                   <button
                     type="button"
                     className={strategy === 'avalanche' ? 'active' : ''}
                     style={{ flex: 1 }}
+                    aria-pressed={strategy === 'avalanche'}
                     onClick={() => handleStrategyChange('avalanche')}
                   >
                     Avalanche
@@ -95,6 +106,7 @@ export function DebtsPage() {
                     type="button"
                     className={strategy === 'snowball' ? 'active' : ''}
                     style={{ flex: 1 }}
+                    aria-pressed={strategy === 'snowball'}
                     onClick={() => handleStrategyChange('snowball')}
                   >
                     Snowball
@@ -110,7 +122,7 @@ export function DebtsPage() {
 
           {result && result.schedule.length > 0 && (
             <div className="card chart-card">
-              <div className="hero-label">Tilgungsverlauf ({result.months} Monate)</div>
+              <div className="hero-label">Tilgungsverlauf</div>
               <PayoffChart data={result.schedule} />
             </div>
           )}
@@ -132,6 +144,9 @@ export function DebtsPage() {
           <div className="row-list">
             {debts.map((d) => (
               <div className="row-item" key={d.id}>
+                <div className="row-icon">
+                  <ChartLineDown size={18} weight="regular" aria-hidden="true" />
+                </div>
                 <div className="row-main">
                   <Link to={`/debts/${d.id}`} className="row-title">
                     {d.name}

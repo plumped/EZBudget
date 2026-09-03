@@ -1,9 +1,11 @@
+import { ArrowLeft } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../api/client'
 import type { Category, Transaction } from '../api/types'
 import { KindBadge } from '../components/KindBadge'
 import { ProgressBar } from '../components/ProgressBar'
+import { Skeleton } from '../components/Skeleton'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatMoney, moneyClass } from '../utils/format'
 
@@ -35,7 +37,11 @@ export function EnvelopeDetailPage() {
   }, [id, year, month])
 
   if (loading || !category) {
-    return <div className="loading-shell">Lädt …</div>
+    return (
+      <div className="card" aria-busy="true">
+        <Skeleton lines={4} />
+      </div>
+    )
   }
 
   return (
@@ -50,6 +56,7 @@ export function EnvelopeDetailPage() {
           </p>
         </div>
         <Link to="/envelopes" className="btn secondary">
+          <ArrowLeft size={16} weight="bold" aria-hidden="true" />
           Zurück
         </Link>
       </div>

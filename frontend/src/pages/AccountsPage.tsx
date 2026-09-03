@@ -1,9 +1,11 @@
+import { Bank, PencilSimple, Plus } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage } from '../api/errors'
 import type { Account } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
+import { SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { formatMoney, moneyClass } from '../utils/format'
 
@@ -48,12 +50,13 @@ export function AccountsPage() {
           <p>Alle deine Bankkonten und Bargeldkassen.</p>
         </div>
         <Link to="/accounts/new" className="btn secondary">
-          + Neues Konto
+          <Plus size={16} weight="bold" aria-hidden="true" />
+          Neues Konto
         </Link>
       </div>
 
       {loading ? (
-        <div className="loading-shell">Lädt …</div>
+        <SkeletonRows count={3} />
       ) : accounts.length === 0 ? (
         <EmptyState>
           Noch keine Konten. <Link to="/accounts/new">Erstes Konto anlegen</Link>
@@ -62,7 +65,9 @@ export function AccountsPage() {
         <div className="row-list">
           {accounts.map((a) => (
             <div className="row-item" key={a.id}>
-              <div className="row-dot" style={{ background: 'var(--primary)' }} />
+              <div className="row-icon">
+                <Bank size={18} weight="regular" aria-hidden="true" />
+              </div>
               <div className="row-main">
                 <Link to={`/accounts/${a.id}`} className="row-title">
                   {a.name}
@@ -72,6 +77,7 @@ export function AccountsPage() {
                   {a.iban && ` · ${a.iban}`}
                   {a.is_archived && <span className="badge">archiviert</span>}
                   <Link to={`/accounts/${a.id}/edit`} className="link-action">
+                    <PencilSimple size={12} weight="bold" aria-hidden="true" />
                     bearbeiten
                   </Link>
                   <button type="button" className="link-action" onClick={() => void toggleArchive(a.id)}>

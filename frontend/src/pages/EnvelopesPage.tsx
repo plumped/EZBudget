@@ -1,3 +1,4 @@
+import { Archive, PencilSimple, Plus } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -6,6 +7,7 @@ import { EmptyState } from '../components/EmptyState'
 import { KindBadge } from '../components/KindBadge'
 import { MonthSwitcher } from '../components/MonthSwitcher'
 import { ProgressBar } from '../components/ProgressBar'
+import { SkeletonRows } from '../components/Skeleton'
 import { extractErrorMessage } from '../api/errors'
 import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
@@ -39,10 +41,6 @@ export function EnvelopesPage() {
     }
   }
 
-  if (loading) {
-    return <div className="loading-shell">Lädt …</div>
-  }
-
   return (
     <>
       <div className="page-header">
@@ -53,20 +51,21 @@ export function EnvelopesPage() {
         <div className="page-header-actions">
           <MonthSwitcher label={label} onPrev={() => setMonth(prevYear, prevMonth)} onNext={() => setMonth(nextYear, nextMonth)} />
           <Link to="/envelopes/new" className="btn secondary">
-            + Neuer Umschlag
+            <Plus size={16} weight="bold" aria-hidden="true" />
+            Neuer Umschlag
           </Link>
         </div>
       </div>
 
-      <div className="row-list">
-        {categories.length === 0 ? (
-          <div style={{ padding: '20px' }}>
-            <EmptyState>
-              Noch keine Umschläge angelegt. <Link to="/envelopes/new">Ersten Umschlag anlegen</Link>
-            </EmptyState>
-          </div>
-        ) : (
-          categories.map((c) => (
+      {loading ? (
+        <SkeletonRows count={5} />
+      ) : categories.length === 0 ? (
+        <EmptyState>
+          Noch keine Umschläge angelegt. <Link to="/envelopes/new">Ersten Umschlag anlegen</Link>
+        </EmptyState>
+      ) : (
+        <div className="row-list">
+          {categories.map((c) => (
             <div className="row-item" key={c.id}>
               <div className="row-dot" style={{ background: c.color }} />
               <div className="row-main">
@@ -77,9 +76,11 @@ export function EnvelopesPage() {
                   <KindBadge kind={c.kind} />
                   {c.keywords && <span className="mono">auto: {c.keywords}</span>}
                   <Link to={`/envelopes/${c.id}/edit`} className="link-action">
+                    <PencilSimple size={12} weight="bold" aria-hidden="true" />
                     bearbeiten
                   </Link>
                   <button type="button" className="link-action" onClick={() => void toggleArchive(c.id)}>
+                    <Archive size={12} weight="bold" aria-hidden="true" />
                     archivieren
                   </button>
                 </div>
@@ -90,9 +91,9 @@ export function EnvelopesPage() {
                 <div className="row-amount-sub">verfügbar mit Übertrag ({formatMoney(c.available)} diesen Monat)</div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </>
   )
 }
