@@ -340,7 +340,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   margin-top: 16px;
 }
 .card-form {
-  max-width: 480px;
+  max-width: 800px;
 }
 .card-form-wide {
   max-width: 560px;
