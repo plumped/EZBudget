@@ -133,6 +133,38 @@ class Transaction(models.Model):
     def is_expense(self):
         return self.amount < 0
 
+    def _linked_debt(self):
+        """Die Schuld, deren Umschlag dieser Buchung zugeordnet ist (falls vorhanden).
+
+        Kein Import aus der debts-App nötig: die Rückwärts-Relation "debt" existiert
+        nur auf automatisch von einer Schuld angelegten Kategorien.
+        """
+        if not self.category_id:
+            return None
+        return getattr(self.category, "debt", None)
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if not is_new:
+            return
+        debt = self._linked_debt()
+        if debt is None:
+            return
+        new_balance = max(debt.current_balance + self.amount, Decimal("0"))
+        debt.current_balance = new_balance
+        debt.is_paid_off = new_balance == 0
+        debt.save(update_fields=["current_balance", "is_paid_off"])
+
+    def delete(self, *args, **kwargs):
+        debt = self._linked_debt()
+        if debt is not None:
+            new_balance = max(debt.current_balance - self.amount, Decimal("0"))
+            debt.current_balance = new_balance
+            debt.is_paid_off = new_balance == 0
+            debt.save(update_fields=["current_balance", "is_paid_off"])
+        super().delete(*args, **kwargs)
+
 
 class RecurringTransaction(models.Model):
     """Vorlage für wiederkehrende Buchungen (Fixkosten, Abos, Lohn ...)."""

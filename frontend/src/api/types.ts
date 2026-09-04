@@ -76,17 +76,11 @@ export interface Debt {
   interest_rate: string
   minimum_payment: string
   is_paid_off: boolean
+  category: number | null
+  category_name: string | null
   created_at: string
   paid_so_far: string
   progress_percent: number
-}
-
-export interface DebtPayment {
-  id: number
-  debt: number
-  date: string
-  amount: string
-  note: string
 }
 
 export type PayoffStrategy = 'avalanche' | 'snowball'

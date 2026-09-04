@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from django.db import models
 
+from core.models import Category
+
 
 class Debt(models.Model):
     name = models.CharField(max_length=150)
@@ -15,6 +17,14 @@ class Debt(models.Model):
     )
     minimum_payment = models.DecimalField(max_digits=10, decimal_places=2, help_text="Monatliche Mindestrate")
     is_paid_off = models.BooleanField(default=False)
+    category = models.OneToOneField(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="debt",
+        help_text="Automatisch angelegter Umschlag, über den Buchungen mit dieser Schuld verknüpft werden.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -33,24 +43,23 @@ class Debt(models.Model):
             return 0
         return int(min(max((self.paid_so_far / self.principal) * 100, 0), 100))
 
-
-class DebtPayment(models.Model):
-    debt = models.ForeignKey(Debt, on_delete=models.CASCADE, related_name="payments")
-    date = models.DateField()
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    note = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        ordering = ["-date"]
-
-    def __str__(self):
-        return f"{self.debt.name}: {self.amount} am {self.date}"
-
     def save(self, *args, **kwargs):
+        # Jede Schuld bekommt automatisch einen eigenen Umschlag (Kind "debt"), über den
+        # sich Buchungen mit ihr verknüpfen lassen. Name und Archiv-Status bleiben mit der
+        # Schuld synchron; das Monatsbudget wird nur bei der Erstellung auf die Mindestrate
+        # vorbelegt und danach nicht mehr angetastet, damit es frei änderbar bleibt.
+        if self.category_id is None:
+            self.category = Category.objects.create(
+                name=self.name,
+                kind=Category.Kind.DEBT,
+                monthly_budget=self.minimum_payment,
+                is_archived=self.is_paid_off,
+            )
+        else:
+            Category.objects.filter(pk=self.category_id).update(name=self.name, is_archived=self.is_paid_off)
         super().save(*args, **kwargs)
-        debt = self.debt
-        new_balance = debt.current_balance - self.amount
-        debt.current_balance = max(new_balance, Decimal("0"))
-        if debt.current_balance == 0:
-            debt.is_paid_off = True
-        debt.save(update_fields=["current_balance", "is_paid_off"])
+
+    def delete(self, *args, **kwargs):
+        if self.category_id:
+            Category.objects.filter(pk=self.category_id).update(is_archived=True)
+        super().delete(*args, **kwargs)

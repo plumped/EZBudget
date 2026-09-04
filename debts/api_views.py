@@ -6,8 +6,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Debt, DebtPayment
-from .serializers import DebtPaymentSerializer, DebtSerializer
+from core.models import Transaction
+from core.serializers import TransactionSerializer
+
+from .models import Debt
+from .serializers import DebtSerializer
 from .services import simulate_payoff
 
 
@@ -23,18 +26,41 @@ class DebtViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"])
     def payments(self, request, pk=None):
+        """Zahlungshistorie einer Schuld = Buchungen auf ihrem verknüpften Umschlag.
+
+        Eine Zahlung hier ist eine Kurzform für "Buchung mit diesem Umschlag
+        erfassen": sie legt eine normale Transaction an (verringert also auch
+        den Kontostand), statt eine separate, unverknüpfte Zahlungstabelle zu
+        pflegen — Transaction.save() reduziert current_balance automatisch.
+        """
         debt = self.get_object()
         if request.method == "POST":
-            serializer = DebtPaymentSerializer(data={**request.data, "debt": debt.id})
+            if debt.category_id is None:
+                return Response({"detail": "Schuld hat keinen verknüpften Umschlag."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                paid_amount = Decimal(str(request.data.get("amount", "0")).replace(",", "."))
+            except InvalidOperation:
+                return Response({"amount": ["Ungültiger Betrag."]}, status=status.HTTP_400_BAD_REQUEST)
+            payload = {
+                "account": request.data.get("account"),
+                "category": debt.category_id,
+                "date": request.data.get("date"),
+                "amount": str(-abs(paid_amount)),
+                "description": request.data.get("note") or f"Tilgung: {debt.name}",
+                "counterparty": debt.creditor,
+            }
+            serializer = TransactionSerializer(data=payload)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             debt.refresh_from_db()
             return Response(
-                {"debt": DebtSerializer(debt).data, "payment": serializer.data},
+                {"debt": DebtSerializer(debt).data, "transaction": serializer.data},
                 status=status.HTTP_201_CREATED,
             )
-        payments = debt.payments.all()
-        return Response(DebtPaymentSerializer(payments, many=True).data)
+        if debt.category_id is None:
+            return Response([])
+        transactions = Transaction.objects.filter(category_id=debt.category_id).order_by("-date", "-id")
+        return Response(TransactionSerializer(transactions, many=True).data)
 
 
 class PayoffSimulationView(APIView):

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from '../api/errors'
-import type { Debt, DebtPayment } from '../api/types'
+import type { Account, Debt, Transaction } from '../api/types'
 import { FieldError } from '../components/FieldError'
 import { ProgressBar } from '../components/ProgressBar'
 import { Skeleton } from '../components/Skeleton'
@@ -15,8 +15,10 @@ export function DebtDetailPage() {
   const navigate = useNavigate()
   const push = useToast()
   const [debt, setDebt] = useState<Debt | null>(null)
-  const [payments, setPayments] = useState<DebtPayment[]>([])
+  const [payments, setPayments] = useState<Transaction[]>([])
+  const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
+  const [accountId, setAccountId] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
@@ -26,7 +28,7 @@ export function DebtDetailPage() {
 
   function load() {
     setLoading(true)
-    return Promise.all([api.get<Debt>(`/debts/${id}/`), api.get<DebtPayment[]>(`/debts/${id}/payments/`)])
+    return Promise.all([api.get<Debt>(`/debts/${id}/`), api.get<Transaction[]>(`/debts/${id}/payments/`)])
       .then(([debtRes, paymentsRes]) => {
         setDebt(debtRes.data)
         setPayments(paymentsRes.data)
@@ -39,12 +41,19 @@ export function DebtDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  useEffect(() => {
+    api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => {
+      setAccounts(res.data)
+      setAccountId((current) => current || (res.data[0] ? String(res.data[0].id) : ''))
+    })
+  }, [])
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setErrors({ fields: {} })
     setSubmitting(true)
     try {
-      await api.post(`/debts/${id}/payments/`, { date, amount, note })
+      await api.post(`/debts/${id}/payments/`, { account: accountId, date, amount, note })
       push('success', 'Zahlung erfasst.')
       setAmount('')
       setNote('')
@@ -82,7 +91,15 @@ export function DebtDetailPage() {
       <div className="page-header">
         <div>
           <h1>{debt.name}</h1>
-          <p>{debt.creditor || 'Kein Gläubiger hinterlegt'}</p>
+          <p>
+            {debt.creditor || 'Kein Gläubiger hinterlegt'}
+            {debt.category && (
+              <>
+                {' · '}
+                <Link to={`/envelopes/${debt.category}`}>Umschlag ansehen</Link>
+              </>
+            )}
+          </p>
         </div>
         <div className="page-header-actions">
           <Link to="/debts" className="btn secondary">
@@ -121,6 +138,16 @@ export function DebtDetailPage() {
       <div className="section-title">Zahlung erfassen</div>
       <div className="card" style={{ maxWidth: 480 }}>
         <form onSubmit={handleSubmit} noValidate>
+          <div className="field">
+            <label htmlFor="account">Konto</label>
+            <select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="form-row">
             <div className="field">
               <label htmlFor="amount">Betrag</label>
@@ -170,6 +197,7 @@ export function DebtDetailPage() {
           <thead>
             <tr>
               <th>Datum</th>
+              <th>Konto</th>
               <th>Notiz</th>
               <th style={{ textAlign: 'right' }}>Betrag</th>
             </tr>
@@ -177,7 +205,7 @@ export function DebtDetailPage() {
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={3} style={{ padding: 0 }}>
+                <td colSpan={4} style={{ padding: 0 }}>
                   <div className="empty-state">Noch keine Zahlungen erfasst.</div>
                 </td>
               </tr>
@@ -185,8 +213,9 @@ export function DebtDetailPage() {
               payments.map((p) => (
                 <tr key={p.id}>
                   <td>{p.date}</td>
-                  <td>{p.note || '—'}</td>
-                  <td className="amount-cell positive">{formatMoney(p.amount)}</td>
+                  <td>{p.account_name}</td>
+                  <td>{p.description || '—'}</td>
+                  <td className={`amount-cell ${p.is_expense ? 'negative' : 'positive'}`}>{formatMoney(p.amount)}</td>
                 </tr>
               ))
             )}

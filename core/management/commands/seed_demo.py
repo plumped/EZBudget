@@ -5,7 +5,7 @@ from decimal import Decimal
 from django.core.management.base import BaseCommand
 
 from core.models import Account, Category, RecurringTransaction, Transaction
-from debts.models import Debt, DebtPayment
+from debts.models import Debt
 
 
 class Command(BaseCommand):
@@ -18,7 +18,6 @@ class Command(BaseCommand):
         if options["reset"]:
             RecurringTransaction.objects.all().delete()
             Transaction.objects.all().delete()
-            DebtPayment.objects.all().delete()
             Debt.objects.all().delete()
             Category.objects.all().delete()
             Account.objects.all().delete()
@@ -41,7 +40,6 @@ class Command(BaseCommand):
             ("Ausgehen & Freizeit", Category.Kind.VARIABLE, 200, "restaurant, bar, kino, netflix"),
             ("Transport", Category.Kind.VARIABLE, 120, "sbb, öv, tankstelle, migrol"),
             ("Gesundheit", Category.Kind.VARIABLE, 60, "apotheke, arzt"),
-            ("Schuldentilgung", Category.Kind.DEBT, 300, ""),
             ("Notgroschen", Category.Kind.SAVINGS, 100, ""),
             ("Lohn", Category.Kind.INCOME, 0, "lohn, salaire, gehalt"),
         ]
@@ -74,7 +72,6 @@ class Command(BaseCommand):
             (-49.00, "GA Halbtax", "SBB", categories["Transport"], 6),
             (-28.50, "Tanken", "Migrol", categories["Transport"], 12),
             (-32.00, "Medikamente", "Apotheke Zentral", categories["Gesundheit"], 14),
-            (-300, "Extra-Tilgung Kreditkarte", "intern", categories["Schuldentilgung"], 15),
             (-100, "Notgroschen", "intern", categories["Notgroschen"], 15),
         ]
         for amount, descr, party, cat, day_offset in demo_txns:
@@ -88,15 +85,18 @@ class Command(BaseCommand):
             )
 
         if not Debt.objects.exists():
+            # current_balance ist der Stand VOR den Beispiel-Tilgungen unten, da diese
+            # als Buchungen auf dem automatisch angelegten Schulden-Umschlag erfasst
+            # werden und current_balance selbst reduzieren (Transaction.save()).
             visa = Debt.objects.create(
                 name="Kreditkarte Viseca",
                 creditor="Viseca Card Services",
                 principal=Decimal("5000"),
-                current_balance=Decimal("3200"),
+                current_balance=Decimal("3500"),
                 interest_rate=Decimal("11.9"),
                 minimum_payment=Decimal("100"),
             )
-            klein = Debt.objects.create(
+            Debt.objects.create(
                 name="Kleinkredit Cembra",
                 creditor="Cembra Money Bank",
                 principal=Decimal("8000"),
@@ -108,11 +108,26 @@ class Command(BaseCommand):
                 name="Darlehen Familie",
                 creditor="Familie",
                 principal=Decimal("2000"),
-                current_balance=Decimal("800"),
+                current_balance=Decimal("850"),
                 interest_rate=Decimal("0"),
                 minimum_payment=Decimal("50"),
             )
-            DebtPayment.objects.create(debt=privat, date=today - timedelta(days=30), amount=Decimal("50"), note="Monatsrate")
+            Transaction.objects.create(
+                account=checking,
+                category=visa.category,
+                date=first_of_month + timedelta(days=15),
+                amount=Decimal("-300"),
+                description="Extra-Tilgung Kreditkarte",
+                counterparty="intern",
+            )
+            Transaction.objects.create(
+                account=checking,
+                category=privat.category,
+                date=today - timedelta(days=30),
+                amount=Decimal("-50"),
+                description="Monatsrate",
+                counterparty="intern",
+            )
 
         recurring_data = [
             ("Mietzins", categories["Miete"], Decimal("-1450"), "Hausverwaltung Muster AG", 3),
@@ -129,6 +144,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Demo-Daten angelegt: 2 Konten, 11 Umschläge, 13 Buchungen, 3 Schulden, 4 Daueraufträge."
+                "Demo-Daten angelegt: 2 Konten, 13 Umschläge (davon 3 automatisch für Schulden), "
+                "14 Buchungen, 3 Schulden, 4 Daueraufträge."
             )
         )
