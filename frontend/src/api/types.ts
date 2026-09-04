@@ -102,7 +102,7 @@ export interface PayoffResult {
   payoff_order: string[]
   debt_free_date: string | null
   reached_max: boolean
-  schedule: { month: number; total_balance: string }[]
+  schedule: { month: number; date: string | null; total_balance: string }[]
 }
 
 export interface CategoryGroup {

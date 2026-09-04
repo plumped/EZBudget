@@ -1,7 +1,7 @@
-import { formatMoney } from '../utils/format'
+import { formatMoney, formatMonthLabel } from '../utils/format'
 
 interface Props {
-  data: { month: number; total_balance: string }[]
+  data: { month: number; date: string | null; total_balance: string }[]
 }
 
 export function PayoffChart({ data }: Props) {
@@ -39,7 +39,7 @@ export function PayoffChart({ data }: Props) {
         {points.map((p, i) =>
           i % labelEvery === 0 ? (
             <text key={data[i].month} x={p.x} y={height - padding + 18} textAnchor="middle" className="chart-tooltip">
-              M{data[i].month}
+              {formatMonthLabel(data[i].date, data[i].month)}
             </text>
           ) : null,
         )}

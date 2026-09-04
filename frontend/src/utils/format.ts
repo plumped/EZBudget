@@ -15,3 +15,10 @@ export function formatDate(value: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString('de-CH', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
+
+export function formatMonthLabel(date: string | null | undefined, monthIndex: number): string {
+  if (!date) return `M${monthIndex}`
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return `M${monthIndex}`
+  return d.toLocaleDateString('de-CH', { month: 'short', year: '2-digit' })
+}

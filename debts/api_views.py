@@ -76,7 +76,11 @@ class PayoffSimulationView(APIView):
                 "debt_free_date": result.debt_free_date,
                 "reached_max": result.reached_max,
                 "schedule": [
-                    {"month": row["month"], "total_balance": str(row["total_balance"].quantize(Decimal("0.01")))}
+                    {
+                        "month": row["month"],
+                        "date": row["date"],
+                        "total_balance": str(row["total_balance"].quantize(Decimal("0.01"))),
+                    }
                     for row in result.schedule
                 ],
             }

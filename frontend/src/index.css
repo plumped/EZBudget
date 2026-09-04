@@ -737,6 +737,11 @@ table.data tr:hover td {
   font-weight: 600;
   color: var(--color-fg);
 }
+.label-with-tooltip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 input:not([type='checkbox']):not([type='radio']):not([type='color']),
 select,
 textarea {

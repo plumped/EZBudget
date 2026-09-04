@@ -125,18 +125,11 @@ export function DebtsPage() {
                 </div>
               </div>
               <div className="field">
-                <label htmlFor="extra">Extra-Budget / Monat</label>
-                <input
-                  id="extra"
-                  value={extra}
-                  onChange={(e) => setExtra(e.target.value)}
-                  onBlur={handleExtraBlur}
-                  aria-describedby="extra-help"
-                />
-                <p className="helptext" id="extra-help">
-                  Nur mit Extra-Budget wirkt sich die Strategie auf Tilgungsreihenfolge, Laufzeit und Zinskosten aus — ohne
-                  Extra-Budget zahlt jede Schuld nur ihre Mindestrate.
-                </p>
+                <label htmlFor="extra" className="label-with-tooltip">
+                  Extra-Budget / Monat
+                  <InfoTooltip text="Zusätzlich zu den Mindestraten verfügbarer Betrag. Ohne Extra-Budget zahlt jede Schuld nur ihre Mindestrate — erst damit wirkt sich die Strategie auf Laufzeit und Zinskosten aus." />
+                </label>
+                <input id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} onBlur={handleExtraBlur} />
               </div>
             </div>
           </div>

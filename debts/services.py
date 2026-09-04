@@ -1,4 +1,5 @@
 """Schulden-Tilgungsplan: Avalanche- und Snowball-Strategie."""
+import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -8,9 +9,15 @@ class SimResult:
     months: int
     total_interest: Decimal
     payoff_order: list
-    schedule: list  # [{month, total_balance}]
+    schedule: list  # [{month, date, total_balance}]
     debt_free_date: object = None
     reached_max: bool = False
+
+
+def _add_months(base_date, months):
+    year = base_date.year + (base_date.month - 1 + months) // 12
+    month = (base_date.month - 1 + months) % 12 + 1
+    return datetime.date(year, month, 1)
 
 
 def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_months=600, start_date=None):
@@ -40,10 +47,17 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     def sort_key(d):
         return d["balance"] if strategy == "snowball" else -d["rate"]
 
+    # Tilgungsreihenfolge = mit welcher Schuld die gewählte Strategie JETZT beginnt.
+    # Bewusst aus dem heutigen Stand berechnet statt aus dem simulierten Abschlussdatum:
+    # bei kleinem Extra-Budget dominiert die natürliche Amortisation über die Mindestraten
+    # so stark, dass beide Strategien zufällig dieselbe Reihenfolge fertigstellen können,
+    # obwohl sie das Extra-Budget unterschiedlich priorisieren — die Reihenfolge, in der
+    # priorisiert wird, muss beim Umschalten aber immer sichtbar wechseln.
+    payoff_order = [d["name"] for d in sorted(snap, key=sort_key)]
+
     total_interest = Decimal("0")
     months = 0
     schedule = []
-    payoff_order = []
     already_off = set()
     # Mindestraten bereits getilgter Schulden werden nicht einfach eingespart, sondern
     # ab dem Folgemonat zusätzlich zum Extra-Budget verteilt ("Schneeball-Effekt") —
@@ -82,12 +96,12 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
                 d["balance"] = Decimal("0")
             if d["balance"] == 0 and d["id"] not in already_off:
                 already_off.add(d["id"])
-                payoff_order.append(d["name"])
                 released_minimums += d["minimum"]
 
         schedule.append(
             {
                 "month": months,
+                "date": _add_months(start_date, months).isoformat() if start_date else None,
                 "total_balance": sum((d["balance"] for d in snap), Decimal("0")),
                 "balances": {d["id"]: d["balance"] for d in snap},
             }
@@ -95,11 +109,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
 
     debt_free_date = None
     if start_date is not None and months < max_months:
-        year = start_date.year + (start_date.month - 1 + months) // 12
-        month = (start_date.month - 1 + months) % 12 + 1
-        import datetime
-
-        debt_free_date = datetime.date(year, month, 1)
+        debt_free_date = _add_months(start_date, months)
 
     return SimResult(
         months=months,
