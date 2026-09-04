@@ -687,9 +687,9 @@ table.data .link-action + .link-action {
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .envelope-seal {
-  width: 44px;
-  height: 44px;
-  margin: -22px auto 0;
+  width: 75px;
+  height: 75px;
+  margin: -37px auto 0;
   border-radius: 50%;
   border: 3px solid var(--color-card);
   overflow: hidden;

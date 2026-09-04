@@ -132,7 +132,7 @@ export function EnvelopesPage() {
             <div className={`envelope-card${c.is_archived ? ' archived' : ''}`} key={c.id}>
               <div className="envelope-flap" style={{ background: `${c.color}33` }} />
               <div className="envelope-seal">
-                <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
+                <KindIcon kind={c.kind} color={c.color} icon={c.icon} size={32} />
               </div>
               <div className="envelope-body">
                 <Link to={`/envelopes/${c.id}`} className="envelope-name">

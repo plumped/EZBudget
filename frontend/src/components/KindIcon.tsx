@@ -10,11 +10,21 @@ const KIND_FALLBACK_ICONS: Record<CategoryKind, Icon> = {
   savings: PiggyBank,
 }
 
-export function KindIcon({ kind, color, icon }: { kind: CategoryKind; color?: string; icon?: string }) {
+export function KindIcon({
+  kind,
+  color,
+  icon,
+  size = 18,
+}: {
+  kind: CategoryKind
+  color?: string
+  icon?: string
+  size?: number
+}) {
   const IconComponent = (icon && ICON_COMPONENTS[icon]) || KIND_FALLBACK_ICONS[kind]
   return (
     <div className="row-icon" style={color ? { background: `${color}1a`, color } : undefined}>
-      <IconComponent size={18} weight="regular" aria-hidden="true" />
+      <IconComponent size={size} weight="regular" aria-hidden="true" />
     </div>
   )
 }
