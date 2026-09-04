@@ -1,4 +1,4 @@
-import { ChartLineDown, Plus } from '@phosphor-icons/react'
+import { ChartLineDown, PencilSimple, Plus } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -164,6 +164,10 @@ export function DebtsPage() {
                   <div className="row-sub">
                     {d.creditor && `${d.creditor} · `}
                     {d.interest_rate}% Zins · Mindestrate {formatMoney(d.minimum_payment)}
+                    <Link to={`/debts/${d.id}/edit`} className="link-action">
+                      <PencilSimple size={12} weight="bold" aria-hidden="true" />
+                      bearbeiten
+                    </Link>
                   </div>
                   <ProgressBar percent={d.progress_percent} />
                 </div>

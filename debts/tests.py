@@ -170,6 +170,41 @@ class DebtCategoryLinkTests(TestCase):
         debt.refresh_from_db()
         self.assertEqual(debt.current_balance, Decimal("1000"))
 
+    def test_editing_transaction_amount_rebalances_debt(self):
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        txn = Transaction.objects.create(
+            account=account, category=debt.category, date=date(2026, 9, 5), amount=Decimal("-100"),
+        )
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("900"))
+
+        txn.amount = Decimal("-150")
+        txn.save()
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("850"))
+
+    def test_moving_transaction_off_debt_category_reverses_balance(self):
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        other_category = Category.objects.create(name="Sonstiges", kind=Category.Kind.VARIABLE)
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        txn = Transaction.objects.create(
+            account=account, category=debt.category, date=date(2026, 9, 5), amount=Decimal("-100"),
+        )
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("900"))
+
+        txn.category = other_category
+        txn.save()
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("1000"))
+
 
 class DebtApiTests(TestCase):
     def setUp(self):
@@ -214,6 +249,29 @@ class DebtApiTests(TestCase):
         response = self.client.delete(f"/api/debts/{debt.id}/")
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Debt.objects.filter(id=debt.id).exists())
+
+    def test_edit_debt_via_api(self):
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.put(
+            f"/api/debts/{debt.id}/",
+            {
+                "name": "Kredit umbenannt",
+                "creditor": "Neue Bank",
+                "principal": "1000",
+                "current_balance": "800",
+                "interest_rate": "8",
+                "minimum_payment": "120",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        debt.refresh_from_db()
+        self.assertEqual(debt.name, "Kredit umbenannt")
+        self.assertEqual(debt.current_balance, Decimal("800"))
+        self.assertEqual(debt.category.name, "Kredit umbenannt")
 
 
 class PayoffApiTests(TestCase):

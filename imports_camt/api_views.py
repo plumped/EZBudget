@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,8 +9,20 @@ from core.models import Account, Category, Transaction
 from core.serializers import TransactionSerializer
 
 from .camt053 import Camt053ParseError, parse_camt053, suggest_category
-from .models import ImportBatch
-from .serializers import ImportBatchSerializer
+from .models import ImportBatch, Rule
+from .serializers import ImportBatchSerializer, RuleSerializer
+
+
+class RuleViewSet(viewsets.ModelViewSet):
+    queryset = Rule.objects.select_related("category")
+    serializer_class = RuleSerializer
+
+
+def _suggest_category(description, counterparty, categories, rules):
+    for rule in rules:
+        if rule.matches(description, counterparty):
+            return rule.category
+    return suggest_category(description, counterparty, categories)
 
 
 def _serialize_row(row):
@@ -47,6 +59,7 @@ class ImportParseView(APIView):
             return Response({"detail": "Keine Buchungen in der Datei gefunden.", "rows": []})
 
         categories = list(Category.objects.filter(is_archived=False))
+        rules = list(Rule.objects.filter(is_active=True, category__is_archived=False).select_related("category"))
         existing_refs = set(
             Transaction.objects.filter(account=account, import_ref__isnull=False).values_list(
                 "import_ref", flat=True
@@ -55,7 +68,7 @@ class ImportParseView(APIView):
 
         rows = []
         for row in parsed:
-            suggestion = suggest_category(row["description"], row["counterparty"], categories)
+            suggestion = _suggest_category(row["description"], row["counterparty"], categories, rules)
             rows.append(
                 {
                     **_serialize_row(row),

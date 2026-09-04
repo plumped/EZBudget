@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from .models import Account, Category, RecurringTransaction, Transaction
+from .models import Account, BudgetSettings, Category, RecurringTransaction, Transaction
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -30,6 +30,12 @@ class SignupSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField(write_only=True)
+
+
+class BudgetSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BudgetSettings
+        fields = ["month_start_day"]
 
 
 class AccountSerializer(serializers.ModelSerializer):

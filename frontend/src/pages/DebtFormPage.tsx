@@ -1,11 +1,15 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
+import type { Debt } from '../api/types'
 import { FieldError } from '../components/FieldError'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
 export function DebtFormPage() {
+  const { id } = useParams<{ id: string }>()
+  const isNew = !id
   const navigate = useNavigate()
   const push = useToast()
   const [name, setName] = useState('')
@@ -14,24 +18,45 @@ export function DebtFormPage() {
   const [currentBalance, setCurrentBalance] = useState('')
   const [interestRate, setInterestRate] = useState('')
   const [minimumPayment, setMinimumPayment] = useState('')
+  const [loading, setLoading] = useState(!isNew)
   const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
   const generalErrorRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    if (isNew) return
+    api.get<Debt>(`/debts/${id}/`).then((res) => {
+      const d = res.data
+      setName(d.name)
+      setCreditor(d.creditor)
+      setPrincipal(d.principal)
+      setCurrentBalance(d.current_balance)
+      setInterestRate(d.interest_rate)
+      setMinimumPayment(d.minimum_payment)
+      setLoading(false)
+    })
+  }, [id, isNew])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setErrors({ fields: {} })
     setSubmitting(true)
     try {
-      await api.post('/debts/', {
+      const payload = {
         name,
         creditor,
         principal,
         current_balance: currentBalance,
         interest_rate: interestRate,
         minimum_payment: minimumPayment,
-      })
-      push('success', 'Schuld hinzugefügt.')
+      }
+      if (isNew) {
+        await api.post('/debts/', payload)
+        push('success', 'Schuld hinzugefügt.')
+      } else {
+        await api.put(`/debts/${id}/`, payload)
+        push('success', 'Schuld aktualisiert.')
+      }
       navigate('/debts')
     } catch (err) {
       const fieldErrors = extractFieldErrors(err)
@@ -42,11 +67,19 @@ export function DebtFormPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+        <Skeleton lines={6} />
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="page-header">
         <div>
-          <h1>Schuld erfassen</h1>
+          <h1>{isNew ? 'Schuld erfassen' : 'Schuld bearbeiten'}</h1>
           <p>Kredit, Kreditkarte, Privatdarlehen o.ä.</p>
         </div>
       </div>

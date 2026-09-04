@@ -109,6 +109,8 @@ export interface DashboardData {
   year: number
   month: number
   month_name: string
+  period_start: string
+  period_end: string
   prev: { year: number; month: number }
   next: { year: number; month: number }
   days_in_month: number
@@ -147,4 +149,21 @@ export interface ImportRow {
   account_iban: string
   suggested_category_id: number | null
   is_duplicate: boolean
+}
+
+export type RuleField = 'description' | 'counterparty' | 'either'
+export type RuleMatchType = 'contains' | 'startswith' | 'exact'
+
+export interface Rule {
+  id: number
+  name: string
+  field: RuleField
+  match_type: RuleMatchType
+  value: string
+  category: number
+  category_name: string
+  category_color: string
+  priority: number
+  is_active: boolean
+  created_at: string
 }

@@ -1,9 +1,30 @@
-import calendar
-from datetime import date
 from decimal import Decimal
 
+from django.apps import apps
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+
+class BudgetSettings(models.Model):
+    """Einzeilige (Singleton) Einstellungen fürs gesamte Haushaltsbudget."""
+
+    month_start_day = models.PositiveSmallIntegerField(
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(28)],
+        help_text="Tag im Monat, an dem der Budget-Monat beginnt (1 = Kalendermonat).",
+    )
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        pass
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
 
 
 class Account(models.Model):
@@ -66,14 +87,20 @@ class Category(models.Model):
         return [k.strip().lower() for k in self.keywords.split(",") if k.strip()]
 
     def spent_in_month(self, year, month):
+        from .budget_month import budget_period_bounds
+
+        start, end = budget_period_bounds(year, month)
         agg = self.transactions.filter(
-            date__year=year, date__month=month, amount__lt=0
+            date__gte=start, date__lte=end, amount__lt=0
         ).aggregate(total=models.Sum("amount"))
         return -(agg["total"] or Decimal("0"))
 
     def income_in_month(self, year, month):
+        from .budget_month import budget_period_bounds
+
+        start, end = budget_period_bounds(year, month)
         agg = self.transactions.filter(
-            date__year=year, date__month=month, amount__gt=0
+            date__gte=start, date__lte=end, amount__gt=0
         ).aggregate(total=models.Sum("amount"))
         return agg["total"] or Decimal("0")
 
@@ -95,17 +122,22 @@ class Category(models.Model):
         Budgethöhe — ausreichend für die Übertragslogik, aber keine
         rückwirkend korrekte Budget-Historie.
         """
-        start = self.created_at.date().replace(day=1) if self.created_at else date(year, month, 1)
-        target_first = date(year, month, 1)
-        if target_first < start:
+        from .budget_month import budget_period_bounds, budget_period_for_date, get_month_start_day
+
+        start_day = get_month_start_day()
+        target_start, target_end = budget_period_bounds(year, month, start_day)
+        if self.created_at:
+            creation_year, creation_month = budget_period_for_date(self.created_at.date(), start_day)
+        else:
+            creation_year, creation_month = year, month
+        creation_start, _ = budget_period_bounds(creation_year, creation_month, start_day)
+        if target_start < creation_start:
             return Decimal("0")
 
-        months = (target_first.year - start.year) * 12 + (target_first.month - start.month) + 1
-        last_day = calendar.monthrange(target_first.year, target_first.month)[1]
-        end = date(target_first.year, target_first.month, last_day)
+        months = (target_start.year - creation_start.year) * 12 + (target_start.month - creation_start.month) + 1
 
         agg = self.transactions.filter(
-            date__gte=start, date__lte=end, amount__lt=0
+            date__gte=creation_start, date__lte=target_end, amount__lt=0
         ).aggregate(total=models.Sum("amount"))
         total_spent = -(agg["total"] or Decimal("0"))
         return self.monthly_budget * months - total_spent
@@ -136,33 +168,45 @@ class Transaction(models.Model):
     def _linked_debt(self):
         """Die Schuld, deren Umschlag dieser Buchung zugeordnet ist (falls vorhanden).
 
-        Kein Import aus der debts-App nötig: die Rückwärts-Relation "debt" existiert
-        nur auf automatisch von einer Schuld angelegten Kategorien.
+        Bewusst eine frische Query über die App-Registry statt self.category.debt:
+        die Rückwärts-Relation wird von Django auf dem Category-Objekt gecacht, das
+        über mehrere save()-Aufrufe auf derselben Transaction-Instanz hinweg (z.B.
+        beim Bearbeiten) veraltete Zwischenstände von current_balance zeigen könnte.
+        Kein Import aus der debts-App nötig, um eine Zirkularität zu vermeiden.
         """
         if not self.category_id:
             return None
-        return getattr(self.category, "debt", None)
+        Debt = apps.get_model("debts", "Debt")
+        return Debt.objects.filter(category_id=self.category_id).first()
 
-    def save(self, *args, **kwargs):
-        is_new = self._state.adding
-        super().save(*args, **kwargs)
-        if not is_new:
-            return
-        debt = self._linked_debt()
-        if debt is None:
-            return
-        new_balance = max(debt.current_balance + self.amount, Decimal("0"))
+    @staticmethod
+    def _adjust_debt(debt, delta):
+        new_balance = max(debt.current_balance + delta, Decimal("0"))
         debt.current_balance = new_balance
         debt.is_paid_off = new_balance == 0
         debt.save(update_fields=["current_balance", "is_paid_off"])
 
+    def save(self, *args, **kwargs):
+        # Vorherigen Stand VOR dem Schreiben laden, damit bei einer Änderung (nicht nur
+        # Neuanlage) der alte Beitrag zur verknüpften Schuld rückgängig gemacht werden
+        # kann, bevor der neue angewendet wird — deckt auch einen Wechsel des Umschlags
+        # weg von oder hin zu einer Schuld ab.
+        previous = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        super().save(*args, **kwargs)
+        if previous is not None and previous.category_id == self.category_id and previous.amount == self.amount:
+            return
+        if previous is not None:
+            old_debt = previous._linked_debt()
+            if old_debt is not None:
+                self._adjust_debt(old_debt, -previous.amount)
+        new_debt = self._linked_debt()
+        if new_debt is not None:
+            self._adjust_debt(new_debt, self.amount)
+
     def delete(self, *args, **kwargs):
         debt = self._linked_debt()
         if debt is not None:
-            new_balance = max(debt.current_balance - self.amount, Decimal("0"))
-            debt.current_balance = new_balance
-            debt.is_paid_off = new_balance == 0
-            debt.save(update_fields=["current_balance", "is_paid_off"])
+            self._adjust_debt(debt, -self.amount)
         super().delete(*args, **kwargs)
 
 

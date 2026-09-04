@@ -1,4 +1,4 @@
-import { ArrowLeft, Trash } from '@phosphor-icons/react'
+import { ArrowLeft, PencilSimple, Trash } from '@phosphor-icons/react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
@@ -102,6 +102,10 @@ export function DebtDetailPage() {
           </p>
         </div>
         <div className="page-header-actions">
+          <Link to={`/debts/${id}/edit`} className="btn secondary">
+            <PencilSimple size={16} weight="bold" aria-hidden="true" />
+            Bearbeiten
+          </Link>
           <Link to="/debts" className="btn secondary">
             <ArrowLeft size={16} weight="bold" aria-hidden="true" />
             Zurück

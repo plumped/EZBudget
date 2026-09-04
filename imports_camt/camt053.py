@@ -38,6 +38,29 @@ def _findall_anywhere(elem, name):
     return [c for c in elem.iter() if _local(c.tag) == name]
 
 
+def _find_party(ntry, primary, ultimate):
+    """Sucht zuerst die direkte Partei (z.B. Cdtr), dann ersatzweise die
+    "Ultimate"-Variante (z.B. UltmtCdtr), die manche Banken stattdessen liefern."""
+    return _find_anywhere(ntry, primary) or _find_anywhere(ntry, ultimate)
+
+
+def _party_display(party_elem):
+    """Name + Postadresse einer Partei als ein String (z.B. für Cdtr/Dbtr),
+    z.B. 'EKZ Elektrizitaetswerke des Kantons Zuerich, Dreikoenigstrasse, 18, 8022, Zuerich, CH'."""
+    if party_elem is None:
+        return ""
+    name = _text(_first_direct(party_elem, "Nm"))
+    address_parts = []
+    pstl_adr = _first_direct(party_elem, "PstlAdr")
+    if pstl_adr is not None:
+        for tag in ("StrtNm", "BldgNb", "PstCd", "TwnNm", "Ctry"):
+            value = _text(_first_direct(pstl_adr, tag))
+            if value:
+                address_parts.append(value)
+    parts = ([name] if name else []) + address_parts
+    return ", ".join(parts)
+
+
 class Camt053ParseError(Exception):
     pass
 
@@ -108,8 +131,14 @@ def parse_camt053(file_obj):
                     descr_parts.append(_text(addtl))
             description = " / ".join(dict.fromkeys(descr_parts)) or "(keine Beschreibung)"
 
-            counterparty_el = _find_anywhere(ntry, "Nm")
-            counterparty = _text(counterparty_el)
+            # Bei einer Ausgabe (DBIT) ist die relevante Gegenpartei der Empfänger
+            # (Cdtr), bei einer Einnahme (CRDT) der Absender (Dbtr) — nicht der
+            # jeweils andere, der bei einer Ausgabe z.B. der Kontoinhaber selbst wäre.
+            if _text(cdt_dbt_el) == "DBIT":
+                party = _find_party(ntry, "Cdtr", "UltmtCdtr")
+            else:
+                party = _find_party(ntry, "Dbtr", "UltmtDbtr")
+            counterparty = _party_display(party)
 
             ref_el = _find_anywhere(ntry, "AcctSvcrRef")
             acct_svcr_ref = _text(ref_el)

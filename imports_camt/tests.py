@@ -8,7 +8,7 @@ from django.test import TestCase
 
 from core.models import Account, Category, Transaction
 from .camt053 import Camt053ParseError, parse_camt053, suggest_category
-from .models import ImportBatch
+from .models import ImportBatch, Rule
 
 SAMPLE_DIR = settings.BASE_DIR / "sample_data"
 
@@ -170,3 +170,64 @@ class ImportApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 1)
         self.assertEqual(response.json()[0]["account_name"], "Girokonto")
+
+    def test_rule_takes_priority_over_keyword_matching(self):
+        precise_category = Category.objects.create(name="Miete direkt", kind=Category.Kind.FIXED)
+        Rule.objects.create(
+            field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.EXACT,
+            value="Hausverwaltung Muster AG", category=precise_category, priority=10,
+        )
+        response = self.client.post(
+            "/api/import/parse/",
+            {"account": self.account.id, "camt_file": self._upload("beispiel_camt053.xml")},
+        )
+        rows = response.json()["rows"]
+        rent_row = next(r for r in rows if "Mietzins" in r["description"])
+        self.assertEqual(rent_row["suggested_category_id"], precise_category.id)
+
+
+class RuleModelTests(TestCase):
+    def setUp(self):
+        self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+
+    def test_contains_match_is_case_insensitive(self):
+        rule = Rule(field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.CONTAINS, value="migros", category=self.category)
+        self.assertTrue(rule.matches("Einkauf", "MIGROS Zürich AG"))
+
+    def test_startswith_requires_prefix(self):
+        rule = Rule(field=Rule.Field.DESCRIPTION, match_type=Rule.MatchType.STARTSWITH, value="Mietzins", category=self.category)
+        self.assertTrue(rule.matches("Mietzins September", ""))
+        self.assertFalse(rule.matches("Nachzahlung Mietzins", ""))
+
+    def test_exact_requires_full_match(self):
+        rule = Rule(field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.EXACT, value="Migros AG", category=self.category)
+        self.assertTrue(rule.matches("", "Migros AG"))
+        self.assertFalse(rule.matches("", "Migros AG Filiale 12"))
+
+    def test_empty_value_never_matches(self):
+        rule = Rule(field=Rule.Field.EITHER, match_type=Rule.MatchType.CONTAINS, value="   ", category=self.category)
+        self.assertFalse(rule.matches("irgendwas", "irgendwas"))
+
+
+class RuleApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+
+    def test_create_list_and_delete_rule(self):
+        response = self.client.post(
+            "/api/import/rules/",
+            {"name": "Migros", "field": "counterparty", "match_type": "contains", "value": "Migros", "category": self.category.id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        rule_id = response.json()["id"]
+
+        response = self.client.get("/api/import/rules/")
+        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(response.json()[0]["category_name"], "Lebensmittel")
+
+        response = self.client.delete(f"/api/import/rules/{rule_id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(Rule.objects.count(), 0)

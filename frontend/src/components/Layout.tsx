@@ -3,6 +3,8 @@ import {
   Bank,
   ChartLineDown,
   Envelope,
+  Funnel,
+  GearSix,
   House,
   Receipt,
   SignOut,
@@ -21,6 +23,8 @@ const NAV_ITEMS: { to: string; label: string; icon: Icon; end?: boolean }[] = [
   { to: '/recurring', label: 'Daueraufträge', icon: ArrowsClockwise },
   { to: '/debts', label: 'Schulden', icon: ChartLineDown },
   { to: '/import', label: 'Import', icon: UploadSimple },
+  { to: '/rules', label: 'Regeln', icon: Funnel },
+  { to: '/settings', label: 'Einstellungen', icon: GearSix },
 ]
 
 export function Layout() {

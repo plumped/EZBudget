@@ -1,4 +1,3 @@
-import calendar
 from datetime import date
 from decimal import Decimal
 
@@ -14,9 +13,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Account, Category, RecurringTransaction, Transaction
+from .budget_month import budget_period_bounds
+from .models import Account, BudgetSettings, Category, RecurringTransaction, Transaction
 from .serializers import (
     AccountSerializer,
+    BudgetSettingsSerializer,
     CategorySerializer,
     LoginSerializer,
     RecurringTransactionSerializer,
@@ -28,8 +29,8 @@ from .services import generate_due_recurring
 
 
 def _month_bounds(year, month):
-    first = date(year, month, 1)
-    last_day = calendar.monthrange(year, month)[1]
+    first, last = budget_period_bounds(year, month)
+    days_in_period = (last - first).days + 1
     if month == 1:
         prev_year, prev_month = year - 1, 12
     else:
@@ -38,7 +39,7 @@ def _month_bounds(year, month):
         next_year, next_month = year + 1, 1
     else:
         next_year, next_month = year, month + 1
-    return first, last_day, (prev_year, prev_month), (next_year, next_month)
+    return first, last, days_in_period, (prev_year, prev_month), (next_year, next_month)
 
 
 def _requested_year_month(request):
@@ -101,6 +102,17 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
 
+class SettingsView(APIView):
+    def get(self, request):
+        return Response(BudgetSettingsSerializer(BudgetSettings.load()).data)
+
+    def put(self, request):
+        serializer = BudgetSettingsSerializer(BudgetSettings.load(), data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
 class AccountViewSet(viewsets.ModelViewSet):
     queryset = Account.objects.all()
     serializer_class = AccountSerializer
@@ -145,7 +157,8 @@ class TransactionViewSet(viewsets.ModelViewSet):
         qs = Transaction.objects.select_related("account", "category").all()
         params = self.request.query_params
         if params.get("year") and params.get("month"):
-            qs = qs.filter(date__year=params["year"], date__month=params["month"])
+            start, end = budget_period_bounds(int(params["year"]), int(params["month"]))
+            qs = qs.filter(date__gte=start, date__lte=end)
         if params.get("category"):
             qs = qs.filter(category_id=params["category"])
         if params.get("account"):
@@ -173,7 +186,7 @@ class DashboardView(APIView):
         generated = generate_due_recurring()
 
         year, month = _requested_year_month(request)
-        first, days_in_month, (prev_year, prev_month), (next_year, next_month) = _month_bounds(year, month)
+        first, last, days_in_month, (prev_year, prev_month), (next_year, next_month) = _month_bounds(year, month)
 
         accounts = Account.objects.filter(is_archived=False)
         total_balance = sum((a.balance for a in accounts), Decimal("0"))
@@ -192,10 +205,10 @@ class DashboardView(APIView):
             }
 
         income_total = Transaction.objects.filter(
-            date__year=year, date__month=month, amount__gt=0
+            date__gte=first, date__lte=last, amount__gt=0
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
         expense_total = -(
-            Transaction.objects.filter(date__year=year, date__month=month, amount__lt=0).aggregate(
+            Transaction.objects.filter(date__gte=first, date__lte=last, amount__lt=0).aggregate(
                 total=Sum("amount")
             )["total"]
             or Decimal("0")
@@ -214,6 +227,8 @@ class DashboardView(APIView):
                 "year": year,
                 "month": month,
                 "month_name": first.strftime("%B %Y"),
+                "period_start": first.isoformat(),
+                "period_end": last.isoformat(),
                 "prev": {"year": prev_year, "month": prev_month},
                 "next": {"year": next_year, "month": next_month},
                 "days_in_month": days_in_month,

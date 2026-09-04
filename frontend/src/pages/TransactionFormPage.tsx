@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
-import type { Account, Category } from '../api/types'
+import type { Account, Category, Transaction } from '../api/types'
 import { FieldError } from '../components/FieldError'
+import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
 export function TransactionFormPage() {
+  const { id } = useParams<{ id: string }>()
+  const isNew = !id
   const navigate = useNavigate()
   const push = useToast()
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -18,6 +21,7 @@ export function TransactionFormPage() {
   const [counterparty, setCounterparty] = useState('')
   const [accountId, setAccountId] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [loading, setLoading] = useState(!isNew)
   const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
   const generalErrorRef = useRef<HTMLParagraphElement>(null)
@@ -25,10 +29,27 @@ export function TransactionFormPage() {
   useEffect(() => {
     api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => {
       setAccounts(res.data)
-      if (res.data.length > 0) setAccountId(String(res.data[0].id))
+      if (isNew && res.data.length > 0) setAccountId((current) => current || String(res.data[0].id))
     })
     api.get<Category[]>('/categories/', { params: { active_only: 1 } }).then((res) => setCategories(res.data))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (isNew) return
+    api.get<Transaction>(`/transactions/${id}/`).then((res) => {
+      const t = res.data
+      const raw = parseFloat(t.amount)
+      setDirection(raw < 0 ? 'expense' : 'income')
+      setAmount(Math.abs(raw).toFixed(2))
+      setDate(t.date)
+      setDescription(t.description)
+      setCounterparty(t.counterparty)
+      setAccountId(String(t.account))
+      setCategoryId(t.category ? String(t.category) : '')
+      setLoading(false)
+    })
+  }, [id, isNew])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -37,15 +58,21 @@ export function TransactionFormPage() {
     try {
       const numeric = Math.abs(parseFloat(amount.replace(',', '.')) || 0)
       const signedAmount = direction === 'expense' ? -numeric : numeric
-      await api.post('/transactions/', {
+      const payload = {
         account: Number(accountId),
         category: categoryId ? Number(categoryId) : null,
         date,
         amount: signedAmount.toFixed(2),
         description,
         counterparty,
-      })
-      push('success', 'Buchung gespeichert.')
+      }
+      if (isNew) {
+        await api.post('/transactions/', payload)
+        push('success', 'Buchung gespeichert.')
+      } else {
+        await api.put(`/transactions/${id}/`, payload)
+        push('success', 'Buchung aktualisiert.')
+      }
       navigate('/transactions')
     } catch (err) {
       const fieldErrors = extractFieldErrors(err)
@@ -56,11 +83,19 @@ export function TransactionFormPage() {
     }
   }
 
+  if (loading) {
+    return (
+      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+        <Skeleton lines={6} />
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="page-header">
         <div>
-          <h1>Buchung erfassen</h1>
+          <h1>{isNew ? 'Buchung erfassen' : 'Buchung bearbeiten'}</h1>
           <p>Manuelle Buchung hinzufügen (z.B. Bargeld).</p>
         </div>
       </div>

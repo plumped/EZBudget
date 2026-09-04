@@ -5,7 +5,8 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 
-from .models import Account, Category, RecurringTransaction, Transaction
+from .budget_month import budget_period_bounds, budget_period_for_date
+from .models import Account, BudgetSettings, Category, RecurringTransaction, Transaction
 from .services import generate_due_recurring
 
 
@@ -61,6 +62,84 @@ class CategoryRolloverTests(TestCase):
             account=self.account, category=self.category, date=date(2026, 9, 5), amount=Decimal("-10")
         )
         self.assertEqual(self.category.available_in_month(2026, 9), Decimal("90"))
+
+
+class CustomMonthStartDayTests(TestCase):
+    """Budget-Monat kann statt am 1. an einem anderen Tag beginnen (z.B. am 25.,
+    wenn Lohn und Daueraufträge dort ausgeführt werden)."""
+
+    def setUp(self):
+        BudgetSettings.objects.update_or_create(pk=1, defaults={"month_start_day": 25})
+        self.account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        self.category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("100")
+        )
+        self.category.created_at = timezone.make_aware(timezone.datetime(2026, 6, 1))
+        self.category.save(update_fields=["created_at"])
+
+    def test_budget_period_bounds_shifted(self):
+        start, end = budget_period_bounds(2026, 8, start_day=25)
+        self.assertEqual(start, date(2026, 8, 25))
+        self.assertEqual(end, date(2026, 9, 24))
+
+    def test_budget_period_for_date_before_and_after_start_day(self):
+        self.assertEqual(budget_period_for_date(date(2026, 9, 3), start_day=25), (2026, 8))
+        self.assertEqual(budget_period_for_date(date(2026, 9, 25), start_day=25), (2026, 9))
+
+    def test_transaction_before_start_day_counts_towards_previous_budget_month(self):
+        # 3. September liegt VOR dem 25. -> gehört zum Budget-Monat "August"
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 9, 3), amount=Decimal("-40")
+        )
+        self.assertEqual(self.category.spent_in_month(2026, 8), Decimal("40"))
+        self.assertEqual(self.category.spent_in_month(2026, 9), Decimal("0"))
+
+    def test_transaction_on_start_day_counts_towards_that_budget_month(self):
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 9, 25), amount=Decimal("-40")
+        )
+        self.assertEqual(self.category.spent_in_month(2026, 9), Decimal("40"))
+        self.assertEqual(self.category.spent_in_month(2026, 8), Decimal("0"))
+
+    def test_dashboard_and_transactions_api_use_shifted_period(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 9, 3), amount=Decimal("-40")
+        )
+        response = self.client.get("/api/transactions/", {"year": 2026, "month": 8})
+        self.assertEqual(len(response.json()), 1)
+        response = self.client.get("/api/transactions/", {"year": 2026, "month": 9})
+        self.assertEqual(len(response.json()), 0)
+
+        response = self.client.get("/api/dashboard/", {"year": 2026, "month": 8})
+        data = response.json()
+        self.assertEqual(data["period_start"], "2026-08-25")
+        self.assertEqual(data["period_end"], "2026-09-24")
+
+
+class SettingsApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_get_defaults_to_calendar_month(self):
+        response = self.client.get("/api/settings/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["month_start_day"], 1)
+
+    def test_put_updates_month_start_day(self):
+        response = self.client.put(
+            "/api/settings/", {"month_start_day": 25}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(BudgetSettings.load().month_start_day, 25)
+
+    def test_put_rejects_out_of_range_value(self):
+        response = self.client.put(
+            "/api/settings/", {"month_start_day": 31}, content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 400)
 
 
 class GenerateDueRecurringTests(TestCase):
@@ -245,6 +324,30 @@ class TransactionApiTests(TestCase):
         response = self.client.delete(f"/api/transactions/{txn_id}/")
         self.assertEqual(response.status_code, 204)
         self.assertFalse(Transaction.objects.filter(id=txn_id).exists())
+
+    def test_edit_transaction(self):
+        response = self.client.post(
+            "/api/transactions/",
+            {"account": self.account.id, "category": self.category.id, "date": "2026-09-05", "amount": "-20"},
+            content_type="application/json",
+        )
+        txn_id = response.json()["id"]
+        response = self.client.put(
+            f"/api/transactions/{txn_id}/",
+            {
+                "account": self.account.id,
+                "category": self.category.id,
+                "date": "2026-09-06",
+                "amount": "-35",
+                "description": "Korrigiert",
+                "counterparty": "Migros",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        txn = Transaction.objects.get(id=txn_id)
+        self.assertEqual(txn.amount, Decimal("-35"))
+        self.assertEqual(txn.description, "Korrigiert")
 
 
 class RecurringApiTests(TestCase):

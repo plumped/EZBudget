@@ -1,4 +1,4 @@
-import { Plus, Trash } from '@phosphor-icons/react'
+import { PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -88,6 +88,7 @@ export function TransactionsPage() {
               <tr>
                 <th>Datum</th>
                 <th>Beschreibung</th>
+                <th>Gegenpartei</th>
                 <th>Konto</th>
                 <th>Umschlag</th>
                 <th style={{ textAlign: 'right' }}>Betrag</th>
@@ -99,10 +100,17 @@ export function TransactionsPage() {
                 <tr key={t.id}>
                   <td>{t.date}</td>
                   <td>{t.description || '—'}</td>
+                  <td className="cell-truncate" title={t.counterparty || undefined}>
+                    {t.counterparty || '—'}
+                  </td>
                   <td>{t.account_name}</td>
                   <td>{t.category_name ?? '—'}</td>
                   <td className={`amount-cell ${t.is_expense ? 'negative' : 'positive'}`}>{formatMoney(t.amount)}</td>
-                  <td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <Link to={`/transactions/${t.id}/edit`} className="link-action">
+                      <PencilSimple size={14} weight="bold" aria-hidden="true" />
+                      bearbeiten
+                    </Link>
                     <button
                       type="button"
                       className="link-action danger"
