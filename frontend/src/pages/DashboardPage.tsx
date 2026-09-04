@@ -107,7 +107,7 @@ export function DashboardPage() {
             <div className="row-item" key={c.id}>
               <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
-                <Link to={`/envelopes/${c.id}`} className="row-title">
+                <Link to={`/envelopes/${c.id}?year=${year}&month=${month}`} className="row-title">
                   {c.name}
                 </Link>
                 <ProgressBar percent={c.progress} over={c.progress >= 100} />
@@ -131,7 +131,7 @@ export function DashboardPage() {
             <div className="row-item" key={c.id}>
               <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
-                <Link to={`/envelopes/${c.id}`} className="row-title">
+                <Link to={`/envelopes/${c.id}?year=${year}&month=${month}`} className="row-title">
                   {c.name}
                 </Link>
                 <ProgressBar percent={c.progress} over={c.progress >= 100} />

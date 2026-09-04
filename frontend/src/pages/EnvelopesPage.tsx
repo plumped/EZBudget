@@ -102,7 +102,7 @@ export function EnvelopesPage() {
             <div className="row-item" key={c.id}>
               <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
-                <Link to={`/envelopes/${c.id}`} className="row-title">
+                <Link to={`/envelopes/${c.id}?year=${year}&month=${month}`} className="row-title">
                   {c.name}
                 </Link>
                 <div className="row-sub">
@@ -135,7 +135,7 @@ export function EnvelopesPage() {
                 <KindIcon kind={c.kind} color={c.color} icon={c.icon} size={32} />
               </div>
               <div className="envelope-body">
-                <Link to={`/envelopes/${c.id}`} className="envelope-name">
+                <Link to={`/envelopes/${c.id}?year=${year}&month=${month}`} className="envelope-name">
                   {c.name}
                 </Link>
                 <div className="envelope-kind">

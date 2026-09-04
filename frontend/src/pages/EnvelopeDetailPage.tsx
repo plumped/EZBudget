@@ -57,7 +57,7 @@ export function EnvelopeDetailPage() {
             </p>
           </div>
         </div>
-        <Link to="/envelopes" className="btn secondary">
+        <Link to={`/envelopes?year=${year}&month=${month}`} className="btn secondary">
           <ArrowLeft size={16} weight="bold" aria-hidden="true" />
           Zurück
         </Link>
