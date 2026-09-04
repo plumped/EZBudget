@@ -151,19 +151,30 @@ export interface ImportRow {
   is_duplicate: boolean
 }
 
-export type RuleField = 'description' | 'counterparty' | 'either'
 export type RuleMatchType = 'contains' | 'startswith' | 'exact'
 
-export interface Rule {
+export interface RuleConditions {
+  description_match_type: RuleMatchType
+  description_value: string
+  counterparty_match_type: RuleMatchType
+  counterparty_value: string
+  amount_min: string | null
+  amount_max: string | null
+}
+
+export interface Rule extends RuleConditions {
   id: number
   name: string
-  field: RuleField
-  match_type: RuleMatchType
-  value: string
   category: number
   category_name: string
   category_color: string
   priority: number
   is_active: boolean
   created_at: string
+}
+
+export interface RulePreviewResult {
+  count: number
+  transactions: Transaction[]
+  preview_limit: number
 }

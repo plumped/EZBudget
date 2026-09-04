@@ -11,5 +11,8 @@ class ImportBatchAdmin(admin.ModelAdmin):
 
 @admin.register(Rule)
 class RuleAdmin(admin.ModelAdmin):
-    list_display = ("name", "field", "match_type", "value", "category", "priority", "is_active")
-    list_filter = ("field", "match_type", "is_active")
+    list_display = (
+        "name", "description_value", "counterparty_value", "amount_min", "amount_max",
+        "category", "priority", "is_active",
+    )
+    list_filter = ("is_active",)

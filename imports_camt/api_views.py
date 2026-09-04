@@ -2,6 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -10,17 +11,70 @@ from core.serializers import TransactionSerializer
 
 from .camt053 import Camt053ParseError, parse_camt053, suggest_category
 from .models import ImportBatch, Rule
-from .serializers import ImportBatchSerializer, RuleSerializer
+from .serializers import ImportBatchSerializer, RuleApplySerializer, RuleConditionSerializer, RuleSerializer
+
+PREVIEW_LIMIT = 50
+
+
+def _apply_text_lookup(qs, field, match_type, value):
+    if match_type == Rule.MatchType.STARTSWITH:
+        return qs.filter(**{f"{field}__istartswith": value})
+    if match_type == Rule.MatchType.EXACT:
+        return qs.filter(**{f"{field}__iexact": value})
+    return qs.filter(**{f"{field}__icontains": value})
+
+
+def _filter_transactions(qs, data):
+    if data.get("description_value"):
+        qs = _apply_text_lookup(qs, "description", data["description_match_type"], data["description_value"])
+    if data.get("counterparty_value"):
+        qs = _apply_text_lookup(qs, "counterparty", data["counterparty_match_type"], data["counterparty_value"])
+    if data.get("amount_min") is not None:
+        qs = qs.filter(amount__gte=data["amount_min"])
+    if data.get("amount_max") is not None:
+        qs = qs.filter(amount__lte=data["amount_max"])
+    return qs
 
 
 class RuleViewSet(viewsets.ModelViewSet):
     queryset = Rule.objects.select_related("category")
     serializer_class = RuleSerializer
 
+    @action(detail=False, methods=["post"])
+    def preview(self, request):
+        """Welche bestehenden Buchungen passen zu den gerade eingegebenen
+        (noch nicht zwingend gespeicherten) Bedingungen — vor dem Anwenden."""
+        serializer = RuleConditionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        qs = _filter_transactions(
+            Transaction.objects.select_related("account", "category").order_by("-date", "-id"),
+            serializer.validated_data,
+        )
+        count = qs.count()
+        rows = TransactionSerializer(qs[:PREVIEW_LIMIT], many=True).data
+        return Response({"count": count, "transactions": rows, "preview_limit": PREVIEW_LIMIT})
 
-def _suggest_category(description, counterparty, categories, rules):
+    @action(detail=False, methods=["post"])
+    def apply(self, request):
+        """Ordnet allen aktuell passenden bestehenden Buchungen den angegebenen
+        Umschlag zu (löst dabei ganz normal Transaction.save() pro Buchung aus,
+        z.B. für die Schuld-Saldo-Synchronisation)."""
+        serializer = RuleApplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        category = data.pop("category")
+        qs = _filter_transactions(Transaction.objects.all(), data)
+        updated = 0
+        for txn in qs:
+            txn.category = category
+            txn.save(update_fields=["category"])
+            updated += 1
+        return Response({"updated": updated})
+
+
+def _suggest_category(description, counterparty, amount, categories, rules):
     for rule in rules:
-        if rule.matches(description, counterparty):
+        if rule.matches(description, counterparty, amount):
             return rule.category
     return suggest_category(description, counterparty, categories)
 
@@ -68,7 +122,7 @@ class ImportParseView(APIView):
 
         rows = []
         for row in parsed:
-            suggestion = _suggest_category(row["description"], row["counterparty"], categories, rules)
+            suggestion = _suggest_category(row["description"], row["counterparty"], row["amount"], categories, rules)
             rows.append(
                 {
                     **_serialize_row(row),

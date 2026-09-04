@@ -1,17 +1,26 @@
 from django.db import models
 
 
+def _text_matches(haystack, match_type, needle):
+    haystack = (haystack or "").strip().lower()
+    needle = needle.strip().lower()
+    if match_type == Rule.MatchType.STARTSWITH:
+        return haystack.startswith(needle)
+    if match_type == Rule.MatchType.EXACT:
+        return haystack == needle
+    return needle in haystack
+
+
 class Rule(models.Model):
-    """Regel zur automatischen Umschlag-Zuordnung beim CAMT.053-Import.
+    """Regel zur automatischen Umschlag-Zuordnung beim CAMT.053-Import — und
+    optional rückwirkend auf bestehende Buchungen anwendbar (siehe api_views).
 
-    Wird vor der einfachen, stichwortbasierten Category.keywords-Zuordnung
-    geprüft (nach Priorität absteigend) — die erste zutreffende Regel gewinnt.
+    Beschreibung, Gegenpartei und Betrag sind unabhängige, optionale
+    Bedingungen: nur gesetzte Bedingungen werden geprüft, und ALLE gesetzten
+    müssen zutreffen (UND-Verknüpfung). Wird vor der einfachen, stichwort-
+    basierten Category.keywords-Zuordnung geprüft (nach Priorität absteigend)
+    — die erste zutreffende Regel gewinnt.
     """
-
-    class Field(models.TextChoices):
-        DESCRIPTION = "description", "Beschreibung"
-        COUNTERPARTY = "counterparty", "Gegenpartei"
-        EITHER = "either", "Beschreibung oder Gegenpartei"
 
     class MatchType(models.TextChoices):
         CONTAINS = "contains", "enthält"
@@ -19,9 +28,16 @@ class Rule(models.Model):
         EXACT = "exact", "ist genau"
 
     name = models.CharField(max_length=150, blank=True, help_text="Optionaler Name zur Übersicht")
-    field = models.CharField(max_length=20, choices=Field.choices, default=Field.EITHER)
-    match_type = models.CharField(max_length=20, choices=MatchType.choices, default=MatchType.CONTAINS)
-    value = models.CharField(max_length=200, help_text="Text, nach dem gesucht wird (Gross-/Kleinschreibung egal)")
+    description_match_type = models.CharField(max_length=20, choices=MatchType.choices, default=MatchType.CONTAINS)
+    description_value = models.CharField(max_length=200, blank=True, help_text="Leer lassen, um Beschreibung nicht zu prüfen")
+    counterparty_match_type = models.CharField(max_length=20, choices=MatchType.choices, default=MatchType.CONTAINS)
+    counterparty_value = models.CharField(max_length=200, blank=True, help_text="Leer lassen, um Gegenpartei nicht zu prüfen")
+    amount_min = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, help_text="Leer lassen für keine Untergrenze"
+    )
+    amount_max = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, help_text="Leer lassen für keine Obergrenze"
+    )
     category = models.ForeignKey("core.Category", on_delete=models.CASCADE, related_name="import_rules")
     priority = models.PositiveIntegerField(default=0, help_text="Höhere Zahl wird zuerst geprüft")
     is_active = models.BooleanField(default=True)
@@ -31,25 +47,23 @@ class Rule(models.Model):
         ordering = ["-priority", "id"]
 
     def __str__(self):
-        return f"{self.name or self.value} → {self.category.name}"
+        return f"{self.name or ('Regel #' + str(self.pk))} → {self.category.name}"
 
-    def matches(self, description, counterparty):
-        needle = self.value.strip().lower()
-        if not needle:
+    def has_condition(self):
+        return bool(self.description_value or self.counterparty_value or self.amount_min is not None or self.amount_max is not None)
+
+    def matches(self, description, counterparty, amount):
+        if not self.has_condition():
             return False
-        haystacks = {
-            self.Field.DESCRIPTION: description or "",
-            self.Field.COUNTERPARTY: counterparty or "",
-            self.Field.EITHER: f"{description or ''} {counterparty or ''}",
-        }
-        haystack = haystacks[self.field].strip().lower()
-        if self.match_type == self.MatchType.CONTAINS:
-            return needle in haystack
-        if self.match_type == self.MatchType.STARTSWITH:
-            return haystack.startswith(needle)
-        if self.match_type == self.MatchType.EXACT:
-            return haystack == needle
-        return False
+        if self.description_value and not _text_matches(description, self.description_match_type, self.description_value):
+            return False
+        if self.counterparty_value and not _text_matches(counterparty, self.counterparty_match_type, self.counterparty_value):
+            return False
+        if self.amount_min is not None and amount < self.amount_min:
+            return False
+        if self.amount_max is not None and amount > self.amount_max:
+            return False
+        return True
 
 
 class ImportBatch(models.Model):

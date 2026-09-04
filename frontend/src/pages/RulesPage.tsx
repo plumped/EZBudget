@@ -3,21 +3,36 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage } from '../api/errors'
-import type { Rule, RuleField, RuleMatchType } from '../api/types'
+import type { Rule, RuleMatchType } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
-
-const FIELD_LABELS: Record<RuleField, string> = {
-  description: 'Beschreibung',
-  counterparty: 'Gegenpartei',
-  either: 'Beschreibung/Gegenpartei',
-}
+import { formatMoney } from '../utils/format'
 
 const MATCH_LABELS: Record<RuleMatchType, string> = {
   contains: 'enthält',
   startswith: 'beginnt mit',
   exact: 'ist genau',
+}
+
+function describeConditions(r: Rule): string {
+  const parts: string[] = []
+  if (r.description_value) {
+    parts.push(`Beschreibung ${MATCH_LABELS[r.description_match_type]} „${r.description_value}“`)
+  }
+  if (r.counterparty_value) {
+    parts.push(`Gegenpartei ${MATCH_LABELS[r.counterparty_match_type]} „${r.counterparty_value}“`)
+  }
+  if (r.amount_min || r.amount_max) {
+    if (r.amount_min && r.amount_max) {
+      parts.push(`Betrag ${formatMoney(r.amount_min)}–${formatMoney(r.amount_max)}`)
+    } else if (r.amount_min) {
+      parts.push(`Betrag ≥ ${formatMoney(r.amount_min)}`)
+    } else if (r.amount_max) {
+      parts.push(`Betrag ≤ ${formatMoney(r.amount_max)}`)
+    }
+  }
+  return parts.join(' · ') || 'keine Bedingung'
 }
 
 export function RulesPage() {
@@ -70,14 +85,14 @@ export function RulesPage() {
       ) : (
         <div className="row-list">
           {rules.map((r) => {
-            const label = r.name || r.value
+            const label = r.name || `Regel #${r.id}`
             return (
               <div className="row-item" key={r.id}>
                 <div className="row-dot" style={{ background: r.category_color || 'var(--color-faint-fg)' }} />
                 <div className="row-main">
                   <span className="row-title">{label}</span>
                   <div className="row-sub">
-                    {FIELD_LABELS[r.field]} {MATCH_LABELS[r.match_type]} „{r.value}“ → {r.category_name}
+                    {describeConditions(r)} → {r.category_name}
                     {' · '}Priorität {r.priority}
                     {!r.is_active && <span className="badge">inaktiv</span>}
                     <Link to={`/rules/${r.id}/edit`} className="link-action">

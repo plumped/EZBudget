@@ -802,6 +802,27 @@ input[type='checkbox'] {
 .checkbox-field label {
   margin: 0;
 }
+.rule-condition-group {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+}
+.rule-condition-group .form-row {
+  margin-bottom: 0;
+}
+.rule-condition-group .field {
+  margin-bottom: 0;
+}
+.rule-condition-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
 .form-row {
   display: flex;
   gap: 16px;

@@ -174,8 +174,8 @@ class ImportApiTests(TestCase):
     def test_rule_takes_priority_over_keyword_matching(self):
         precise_category = Category.objects.create(name="Miete direkt", kind=Category.Kind.FIXED)
         Rule.objects.create(
-            field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.EXACT,
-            value="Hausverwaltung Muster AG", category=precise_category, priority=10,
+            counterparty_match_type=Rule.MatchType.EXACT, counterparty_value="Hausverwaltung Muster AG",
+            category=precise_category, priority=10,
         )
         response = self.client.post(
             "/api/import/parse/",
@@ -185,40 +185,72 @@ class ImportApiTests(TestCase):
         rent_row = next(r for r in rows if "Mietzins" in r["description"])
         self.assertEqual(rent_row["suggested_category_id"], precise_category.id)
 
+    def test_rule_can_combine_counterparty_and_amount(self):
+        precise_category = Category.objects.create(name="Miete direkt", kind=Category.Kind.FIXED)
+        Rule.objects.create(
+            counterparty_match_type=Rule.MatchType.CONTAINS, counterparty_value="Hausverwaltung",
+            amount_max=Decimal("-1000"), category=precise_category, priority=10,
+        )
+        response = self.client.post(
+            "/api/import/parse/",
+            {"account": self.account.id, "camt_file": self._upload("beispiel_camt053.xml")},
+        )
+        rows = response.json()["rows"]
+        migros_row = next(r for r in rows if "Migros" in r["description"])
+        rent_row = next(r for r in rows if "Mietzins" in r["description"])
+        # Migros (-84.30) unterschreitet -1000 nicht -> Regel greift nicht, nur Miete (-1450) tut es
+        self.assertNotEqual(migros_row["suggested_category_id"], precise_category.id)
+        self.assertEqual(rent_row["suggested_category_id"], precise_category.id)
+
 
 class RuleModelTests(TestCase):
     def setUp(self):
         self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
 
     def test_contains_match_is_case_insensitive(self):
-        rule = Rule(field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.CONTAINS, value="migros", category=self.category)
-        self.assertTrue(rule.matches("Einkauf", "MIGROS Zürich AG"))
+        rule = Rule(counterparty_match_type=Rule.MatchType.CONTAINS, counterparty_value="migros", category=self.category)
+        self.assertTrue(rule.matches("Einkauf", "MIGROS Zürich AG", Decimal("-10")))
 
     def test_startswith_requires_prefix(self):
-        rule = Rule(field=Rule.Field.DESCRIPTION, match_type=Rule.MatchType.STARTSWITH, value="Mietzins", category=self.category)
-        self.assertTrue(rule.matches("Mietzins September", ""))
-        self.assertFalse(rule.matches("Nachzahlung Mietzins", ""))
+        rule = Rule(description_match_type=Rule.MatchType.STARTSWITH, description_value="Mietzins", category=self.category)
+        self.assertTrue(rule.matches("Mietzins September", "", Decimal("-1450")))
+        self.assertFalse(rule.matches("Nachzahlung Mietzins", "", Decimal("-1450")))
 
     def test_exact_requires_full_match(self):
-        rule = Rule(field=Rule.Field.COUNTERPARTY, match_type=Rule.MatchType.EXACT, value="Migros AG", category=self.category)
-        self.assertTrue(rule.matches("", "Migros AG"))
-        self.assertFalse(rule.matches("", "Migros AG Filiale 12"))
+        rule = Rule(counterparty_match_type=Rule.MatchType.EXACT, counterparty_value="Migros AG", category=self.category)
+        self.assertTrue(rule.matches("", "Migros AG", Decimal("-10")))
+        self.assertFalse(rule.matches("", "Migros AG Filiale 12", Decimal("-10")))
 
-    def test_empty_value_never_matches(self):
-        rule = Rule(field=Rule.Field.EITHER, match_type=Rule.MatchType.CONTAINS, value="   ", category=self.category)
-        self.assertFalse(rule.matches("irgendwas", "irgendwas"))
+    def test_no_condition_never_matches(self):
+        rule = Rule(category=self.category)
+        self.assertFalse(rule.matches("irgendwas", "irgendwas", Decimal("-10")))
+
+    def test_amount_range_condition(self):
+        rule = Rule(amount_min=Decimal("-50"), amount_max=Decimal("-10"), category=self.category)
+        self.assertTrue(rule.matches("", "", Decimal("-25")))
+        self.assertFalse(rule.matches("", "", Decimal("-5")))
+        self.assertFalse(rule.matches("", "", Decimal("-100")))
+
+    def test_all_set_conditions_must_match(self):
+        rule = Rule(
+            counterparty_match_type=Rule.MatchType.CONTAINS, counterparty_value="Migros",
+            amount_max=Decimal("-50"), category=self.category,
+        )
+        self.assertFalse(rule.matches("", "Migros AG", Decimal("-10")))  # Gegenpartei ok, Betrag nicht
+        self.assertTrue(rule.matches("", "Migros AG", Decimal("-60")))
 
 
 class RuleApiTests(TestCase):
     def setUp(self):
         User.objects.create_user(username="tester", password="testpass12345")
         self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
         self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
 
     def test_create_list_and_delete_rule(self):
         response = self.client.post(
             "/api/import/rules/",
-            {"name": "Migros", "field": "counterparty", "match_type": "contains", "value": "Migros", "category": self.category.id},
+            {"name": "Migros", "counterparty_match_type": "contains", "counterparty_value": "Migros", "category": self.category.id},
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 201)
@@ -230,4 +262,78 @@ class RuleApiTests(TestCase):
 
         response = self.client.delete(f"/api/import/rules/{rule_id}/")
         self.assertEqual(response.status_code, 204)
+
+    def test_create_rule_without_any_condition_is_rejected(self):
+        response = self.client.post(
+            "/api/import/rules/",
+            {"name": "Leer", "category": self.category.id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_edit_rule_via_put_updates_all_condition_fields(self):
+        rule = Rule.objects.create(
+            name="Migros", counterparty_match_type=Rule.MatchType.CONTAINS, counterparty_value="Migros",
+            category=self.category,
+        )
+        other_category = Category.objects.create(name="Transport", kind=Category.Kind.VARIABLE)
+        response = self.client.put(
+            f"/api/import/rules/{rule.id}/",
+            {
+                "name": "Migros gross",
+                "description_match_type": "contains", "description_value": "Einkauf",
+                "counterparty_match_type": "exact", "counterparty_value": "Migros AG",
+                "amount_min": "-100", "amount_max": "-10",
+                "category": other_category.id, "priority": 5, "is_active": False,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        rule.refresh_from_db()
+        self.assertEqual(rule.description_value, "Einkauf")
+        self.assertEqual(rule.counterparty_match_type, "exact")
+        self.assertEqual(rule.amount_min, Decimal("-100"))
+        self.assertEqual(rule.category_id, other_category.id)
+        self.assertFalse(rule.is_active)
+
+    def test_preview_returns_matching_existing_transactions(self):
+        Transaction.objects.create(account=self.account, date="2026-09-05", amount=Decimal("-20"), counterparty="Migros AG")
+        Transaction.objects.create(account=self.account, date="2026-09-06", amount=Decimal("-30"), counterparty="Coop")
+
+        response = self.client.post(
+            "/api/import/rules/preview/",
+            {"counterparty_match_type": "contains", "counterparty_value": "Migros"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["transactions"][0]["counterparty"], "Migros AG")
+
+    def test_preview_without_any_condition_is_rejected(self):
+        response = self.client.post("/api/import/rules/preview/", {}, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_apply_recategorizes_matching_transactions_and_syncs_debt(self):
+        from debts.models import Debt
+
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        t1 = Transaction.objects.create(account=self.account, date="2026-09-05", amount=Decimal("-20"), counterparty="Migros AG")
+        Transaction.objects.create(account=self.account, date="2026-09-06", amount=Decimal("-30"), counterparty="Coop")
+
+        response = self.client.post(
+            "/api/import/rules/apply/",
+            {"counterparty_match_type": "contains", "counterparty_value": "Migros", "category": debt.category_id},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["updated"], 1)
+
+        t1.refresh_from_db()
+        self.assertEqual(t1.category_id, debt.category_id)
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("980"))
         self.assertEqual(Rule.objects.count(), 0)
