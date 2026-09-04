@@ -471,22 +471,40 @@ a.row-title:hover {
   flex-wrap: wrap;
   align-items: center;
 }
-.row-sub .link-action {
+.link-action {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   color: var(--color-secondary);
   background: none;
   border: none;
-  font-size: inherit;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
   font-family: inherit;
-  padding: 0;
+  font-weight: 600;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
-.row-sub .link-action:hover {
+.row-sub .link-action {
+  font-size: inherit;
+  font-weight: 400;
+  padding: 0;
+  margin: 0;
+}
+.link-action:hover {
+  background: var(--color-muted);
   text-decoration: underline;
 }
-.row-sub .link-action.danger {
+.row-sub .link-action:hover {
+  background: none;
+}
+.link-action.danger {
   color: var(--color-destructive);
+}
+.link-action.danger:hover {
+  background: var(--color-destructive-soft);
 }
 .row-amount {
   font-family: var(--font-heading);
