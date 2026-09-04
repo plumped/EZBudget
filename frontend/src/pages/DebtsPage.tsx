@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import api from '../api/client'
 import type { Debt, PayoffResult, PayoffStrategy } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
+import { InfoTooltip } from '../components/InfoTooltip'
 import { PayoffChart } from '../components/PayoffChart'
 import { ProgressBar } from '../components/ProgressBar'
 import { Skeleton, SkeletonRows } from '../components/Skeleton'
@@ -112,10 +113,30 @@ export function DebtsPage() {
                     Snowball
                   </button>
                 </div>
+                <div className="strategy-legend">
+                  <span className="strategy-legend-item">
+                    Höchster Zins zuerst
+                    <InfoTooltip text="Avalanche: Das Extra-Budget fliesst zuerst in die Schuld mit dem höchsten Zinssatz. Das minimiert die gesamten Zinskosten." />
+                  </span>
+                  <span className="strategy-legend-item">
+                    Kleinste Restschuld zuerst
+                    <InfoTooltip text="Snowball: Das Extra-Budget fliesst zuerst in die Schuld mit der kleinsten Restschuld. Schnelle Erfolgserlebnisse motivieren zum Durchhalten." />
+                  </span>
+                </div>
               </div>
               <div className="field">
                 <label htmlFor="extra">Extra-Budget / Monat</label>
-                <input id="extra" value={extra} onChange={(e) => setExtra(e.target.value)} onBlur={handleExtraBlur} />
+                <input
+                  id="extra"
+                  value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  onBlur={handleExtraBlur}
+                  aria-describedby="extra-help"
+                />
+                <p className="helptext" id="extra-help">
+                  Nur mit Extra-Budget wirkt sich die Strategie auf Tilgungsreihenfolge, Laufzeit und Zinskosten aus — ohne
+                  Extra-Budget zahlt jede Schuld nur ihre Mindestrate.
+                </p>
               </div>
             </div>
           </div>

@@ -37,6 +37,18 @@ class SimulatePayoffTests(TestCase):
         result = simulate_payoff(debts, strategy="snowball", extra_budget=Decimal("200"))
         self.assertEqual(result.payoff_order[0], "Kleine Schuld")
 
+    def test_freed_minimum_payment_rolls_into_next_debt(self):
+        """Sobald eine Schuld getilgt ist, fliesst ihre Mindestrate ab dem Folgemonat
+        zusätzlich zum Extra-Budget in die nächste Schuld (Schneeball-Effekt) — ohne
+        das bräuchte "Grosse Schuld" bei 50/Monat Mindestrate und 10% Zins weit über
+        100 Monate, da 25/Monat davon sofort wieder als Zins anfallen."""
+        debts = [
+            {"id": 1, "name": "Kleine Schuld", "balance": Decimal("300"), "rate": Decimal("0"), "minimum": Decimal("150")},
+            {"id": 2, "name": "Grosse Schuld", "balance": Decimal("3000"), "rate": Decimal("10"), "minimum": Decimal("50")},
+        ]
+        result = simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"))
+        self.assertEqual(result.months, 18)
+
     def test_extra_budget_accelerates_payoff(self):
         debts = [
             {"id": 1, "name": "Kredit", "balance": Decimal("3000"), "rate": Decimal("10"), "minimum": Decimal("100")},

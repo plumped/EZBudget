@@ -45,6 +45,10 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     schedule = []
     payoff_order = []
     already_off = set()
+    # Mindestraten bereits getilgter Schulden werden nicht einfach eingespart, sondern
+    # ab dem Folgemonat zusätzlich zum Extra-Budget verteilt ("Schneeball-Effekt") —
+    # das ist der eigentliche Kern von Avalanche/Snowball, nicht nur die Priorität.
+    released_minimums = Decimal("0")
 
     while any(d["balance"] > 0 for d in snap) and months < max_months:
         months += 1
@@ -63,8 +67,8 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
             pay = min(d["minimum"], d["balance"])
             d["balance"] -= pay
 
-        # 3) Restbudget nach Priorität auf offene Schulden verteilen
-        pool = Decimal(extra_budget)
+        # 3) Restbudget (Extra-Budget + freigewordene Mindestraten) nach Priorität verteilen
+        pool = Decimal(extra_budget) + released_minimums
         ordered = sorted([d for d in snap if d["balance"] > 0], key=sort_key)
         for d in ordered:
             if pool <= 0:
@@ -79,6 +83,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
             if d["balance"] == 0 and d["id"] not in already_off:
                 already_off.add(d["id"])
                 payoff_order.append(d["name"])
+                released_minimums += d["minimum"]
 
         schedule.append(
             {

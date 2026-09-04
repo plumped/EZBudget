@@ -1059,6 +1059,83 @@ input[type='checkbox'] {
   color: var(--color-muted-fg);
 }
 
+/* ---------- Tooltip ---------- */
+.tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--color-muted-fg);
+  cursor: help;
+  padding: 0;
+}
+.tooltip-trigger:hover,
+.tooltip-trigger:focus-visible {
+  color: var(--color-secondary);
+}
+.tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content;
+  max-width: 240px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-fg);
+  color: var(--color-bg);
+  font-size: 0.76rem;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+  z-index: 20;
+}
+.tooltip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  transform: translateX(-50%) rotate(45deg);
+  background: var(--color-fg);
+  margin-top: -5px;
+}
+.tooltip:hover .tooltip-bubble,
+.tooltip-trigger:focus-visible + .tooltip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.strategy-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+.strategy-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted-fg);
+}
+
 .payoff-order {
   list-style: none;
   padding: 0;
