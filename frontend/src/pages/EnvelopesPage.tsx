@@ -1,4 +1,4 @@
-import { Archive, PencilSimple, Plus } from '@phosphor-icons/react'
+import { Archive, Envelope, List, PencilSimple, Plus } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -14,11 +14,33 @@ import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatMoney, moneyClass } from '../utils/format'
 
+type ViewMode = 'list' | 'cards'
+const VIEW_STORAGE_KEY = 'ezbudget.envelopes.view'
+
+function loadStoredView(): ViewMode {
+  try {
+    const stored = localStorage.getItem(VIEW_STORAGE_KEY)
+    return stored === 'cards' ? 'cards' : 'list'
+  } catch {
+    return 'list'
+  }
+}
+
 export function EnvelopesPage() {
   const { year, month, label, prevYear, prevMonth, nextYear, nextMonth, setMonth } = useMonthParam()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<ViewMode>(loadStoredView)
   const push = useToast()
+
+  function changeView(next: ViewMode) {
+    setView(next)
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next)
+    } catch {
+      // localStorage kann in privaten Modi/eingeschränkten Browsern fehlschlagen — Ansicht bleibt trotzdem für die Session gesetzt.
+    }
+  }
 
   const load = useCallback(() => {
     setLoading(true)
@@ -51,6 +73,16 @@ export function EnvelopesPage() {
         </div>
         <div className="page-header-actions">
           <MonthSwitcher label={label} onPrev={() => setMonth(prevYear, prevMonth)} onNext={() => setMonth(nextYear, nextMonth)} />
+          <div className="toggle-group" role="group" aria-label="Ansicht">
+            <button type="button" className={view === 'list' ? 'active' : ''} aria-pressed={view === 'list'} onClick={() => changeView('list')}>
+              <List size={14} weight="bold" aria-hidden="true" />
+              Liste
+            </button>
+            <button type="button" className={view === 'cards' ? 'active' : ''} aria-pressed={view === 'cards'} onClick={() => changeView('cards')}>
+              <Envelope size={14} weight="bold" aria-hidden="true" />
+              Umschläge
+            </button>
+          </div>
           <Link to="/envelopes/new" className="btn secondary">
             <Plus size={16} weight="bold" aria-hidden="true" />
             Neuer Umschlag
@@ -64,7 +96,7 @@ export function EnvelopesPage() {
         <EmptyState>
           Noch keine Umschläge angelegt. <Link to="/envelopes/new">Ersten Umschlag anlegen</Link>
         </EmptyState>
-      ) : (
+      ) : view === 'list' ? (
         <div className="row-list">
           {categories.map((c) => (
             <div className="row-item" key={c.id}>
@@ -90,6 +122,40 @@ export function EnvelopesPage() {
               <div className={`row-amount num ${moneyClass(c.rollover)}`}>
                 {formatMoney(c.rollover)}
                 <div className="row-amount-sub">verfügbar mit Übertrag ({formatMoney(c.available)} diesen Monat)</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="envelope-grid">
+          {categories.map((c) => (
+            <div className={`envelope-card${c.is_archived ? ' archived' : ''}`} key={c.id}>
+              <div className="envelope-flap" style={{ background: `${c.color}33` }} />
+              <div className="envelope-seal">
+                <KindIcon kind={c.kind} color={c.color} />
+              </div>
+              <div className="envelope-body">
+                <Link to={`/envelopes/${c.id}`} className="envelope-name">
+                  {c.name}
+                </Link>
+                <div className="envelope-kind">
+                  <KindBadge kind={c.kind} />
+                </div>
+                <div className="envelope-progress">
+                  <ProgressBar percent={c.progress} over={c.progress >= 100} />
+                </div>
+                <div className={`envelope-amount num ${moneyClass(c.rollover)}`}>{formatMoney(c.rollover)}</div>
+                <div className="envelope-amount-sub">verfügbar mit Übertrag ({formatMoney(c.available)} diesen Monat)</div>
+                <div className="envelope-actions">
+                  <Link to={`/envelopes/${c.id}/edit`} className="link-action">
+                    <PencilSimple size={12} weight="bold" aria-hidden="true" />
+                    bearbeiten
+                  </Link>
+                  <button type="button" className="link-action" onClick={() => void toggleArchive(c.id)}>
+                    <Archive size={12} weight="bold" aria-hidden="true" />
+                    archivieren
+                  </button>
+                </div>
               </div>
             </div>
           ))}

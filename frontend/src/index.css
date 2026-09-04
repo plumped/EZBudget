@@ -528,6 +528,100 @@ a.row-title:hover {
   color: var(--color-destructive);
 }
 
+/* ---------- Envelope card view ---------- */
+.envelope-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px;
+}
+.envelope-card {
+  position: relative;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  animation: row-in var(--motion-base) var(--motion-ease) both;
+  transition: box-shadow var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+.envelope-grid .envelope-card:nth-child(1) { animation-delay: 0ms; }
+.envelope-grid .envelope-card:nth-child(2) { animation-delay: 30ms; }
+.envelope-grid .envelope-card:nth-child(3) { animation-delay: 60ms; }
+.envelope-grid .envelope-card:nth-child(4) { animation-delay: 90ms; }
+.envelope-grid .envelope-card:nth-child(5) { animation-delay: 120ms; }
+.envelope-grid .envelope-card:nth-child(n + 6) { animation-delay: 150ms; }
+.envelope-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+.envelope-card.archived {
+  opacity: 0.55;
+}
+.envelope-flap {
+  height: 46px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.envelope-seal {
+  width: 44px;
+  height: 44px;
+  margin: -22px auto 0;
+  border-radius: 50%;
+  border: 3px solid var(--color-card);
+  overflow: hidden;
+}
+.envelope-seal .row-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.envelope-body {
+  padding: 10px 18px 18px;
+}
+.envelope-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1rem;
+  margin-top: 4px;
+}
+a.envelope-name:hover {
+  color: var(--color-secondary);
+}
+.envelope-kind {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+.envelope-progress {
+  margin-top: 14px;
+}
+.envelope-amount {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.35rem;
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.envelope-amount.positive {
+  color: var(--color-positive);
+}
+.envelope-amount.negative {
+  color: var(--color-destructive);
+}
+.envelope-amount-sub {
+  font-size: 0.72rem;
+  color: var(--color-muted-fg);
+  margin-top: 2px;
+}
+.envelope-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
 /* ---------- Progress ---------- */
 .progress-track {
   height: 6px;
@@ -771,6 +865,9 @@ input[type='checkbox'] {
   background: var(--color-card);
 }
 .toggle-group button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 8px 16px;
   border: none;
   background: none;
