@@ -140,7 +140,7 @@ export function DebtDetailPage() {
       </div>
 
       <div className="section-title">Zahlung erfassen</div>
-      <div className="card" style={{ maxWidth: 480 }}>
+      <div className="card card-form">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="account">Konto</label>
@@ -203,13 +203,13 @@ export function DebtDetailPage() {
               <th>Datum</th>
               <th>Konto</th>
               <th>Notiz</th>
-              <th style={{ textAlign: 'right' }}>Betrag</th>
+              <th className="text-right">Betrag</th>
             </tr>
           </thead>
           <tbody>
             {payments.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: 0 }}>
+                <td colSpan={4} className="table-empty-cell">
                   <div className="empty-state">Noch keine Zahlungen erfasst.</div>
                 </td>
               </tr>

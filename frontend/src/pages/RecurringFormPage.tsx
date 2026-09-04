@@ -98,7 +98,7 @@ export function RecurringFormPage() {
 
   if (loading) {
     return (
-      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+      <div className="card card-form" aria-busy="true">
         <Skeleton lines={6} />
       </div>
     )
@@ -112,7 +112,7 @@ export function RecurringFormPage() {
           <p>Wird jeden Monat am angegebenen Tag automatisch als Buchung erzeugt.</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 480 }}>
+      <div className="card card-form">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="description">Beschreibung</label>

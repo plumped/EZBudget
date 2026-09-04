@@ -290,6 +290,11 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   flex-wrap: wrap;
   align-items: center;
 }
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
 
 /* ---------- Month switcher ---------- */
 .month-switcher {
@@ -333,6 +338,12 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
 }
 .card + .card {
   margin-top: 16px;
+}
+.card-form {
+  max-width: 480px;
+}
+.card-form-wide {
+  max-width: 560px;
 }
 
 .hero-label {
@@ -723,6 +734,18 @@ table.data tr:hover td {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.content-pad {
+  padding: 20px;
+}
+.nowrap {
+  white-space: nowrap;
+}
+table.data th.text-right {
+  text-align: right;
+}
+table.data td.table-empty-cell {
+  padding: 0;
+}
 .amount-cell {
   font-family: var(--font-heading);
   font-variant-numeric: tabular-nums;
@@ -832,6 +855,32 @@ input[type='checkbox'] {
   flex: 1;
   min-width: 180px;
 }
+.form-row.align-end {
+  align-items: flex-end;
+}
+.form-row.section-gap {
+  margin-top: 24px;
+}
+.form-row .field.field-wide {
+  min-width: 220px;
+}
+.form-row .field.field-auto {
+  flex: 0 0 auto;
+}
+.form-row .field.field-fixed {
+  flex: 0 0 160px;
+}
+.category-select {
+  min-width: 160px;
+}
+.filter-select {
+  width: auto;
+}
+.color-preview {
+  height: 42px;
+  display: flex;
+  align-items: center;
+}
 .helptext {
   font-size: 0.76rem;
   color: var(--color-muted-fg);
@@ -848,6 +897,9 @@ input[type='checkbox'] {
   display: flex;
   gap: 10px;
   margin-top: 4px;
+}
+.form-actions.spaced {
+  margin-top: 20px;
 }
 
 /* ---------- Buttons ---------- */
@@ -902,10 +954,15 @@ input[type='checkbox'] {
   overflow: hidden;
   background: var(--color-card);
 }
+.toggle-group-full {
+  width: 100%;
+}
 .toggle-group button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  flex: 1;
   padding: 8px 16px;
   border: none;
   background: none;
@@ -970,6 +1027,34 @@ input[type='checkbox'] {
 }
 .skeleton-line {
   height: 12px;
+}
+.skeleton-text .skeleton-line {
+  margin-bottom: 10px;
+}
+.skeleton-text .skeleton-line:last-child {
+  width: 55%;
+}
+.skeleton-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.skeleton-row-main {
+  flex: 1;
+}
+.skeleton-row-main .skeleton-line:first-child {
+  width: 40%;
+  height: 12px;
+  margin-bottom: 8px;
+}
+.skeleton-row-main .skeleton-line:last-child {
+  width: 65%;
+  height: 8px;
+}
+.skeleton-amount {
+  width: 60px;
+  height: 16px;
 }
 
 /* ---------- Toasts ---------- */

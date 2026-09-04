@@ -85,7 +85,7 @@ export function TransactionFormPage() {
 
   if (loading) {
     return (
-      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+      <div className="card card-form" aria-busy="true">
         <Skeleton lines={6} />
       </div>
     )
@@ -99,15 +99,14 @@ export function TransactionFormPage() {
           <p>Manuelle Buchung hinzufügen (z.B. Bargeld).</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 480 }}>
+      <div className="card card-form">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label id="direction-label">Richtung</label>
-            <div className="toggle-group" style={{ width: '100%' }} role="group" aria-labelledby="direction-label">
+            <div className="toggle-group toggle-group-full" role="group" aria-labelledby="direction-label">
               <button
                 type="button"
                 className={direction === 'expense' ? 'active' : ''}
-                style={{ flex: 1 }}
                 aria-pressed={direction === 'expense'}
                 onClick={() => setDirection('expense')}
               >
@@ -116,7 +115,6 @@ export function TransactionFormPage() {
               <button
                 type="button"
                 className={direction === 'income' ? 'active' : ''}
-                style={{ flex: 1 }}
                 aria-pressed={direction === 'income'}
                 onClick={() => setDirection('income')}
               >

@@ -48,7 +48,7 @@ export function EnvelopeDetailPage() {
   return (
     <>
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div className="detail-header">
           <KindIcon kind={category.kind} color={category.color} />
           <div>
             <h1>{category.name}</h1>
@@ -93,13 +93,13 @@ export function EnvelopeDetailPage() {
               <th>Datum</th>
               <th>Beschreibung</th>
               <th>Konto</th>
-              <th style={{ textAlign: 'right' }}>Betrag</th>
+              <th className="text-right">Betrag</th>
             </tr>
           </thead>
           <tbody>
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: 0 }}>
+                <td colSpan={4} className="table-empty-cell">
                   <div className="empty-state">Keine Buchungen in diesem Monat.</div>
                 </td>
               </tr>

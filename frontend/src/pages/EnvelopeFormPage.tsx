@@ -85,7 +85,7 @@ export function EnvelopeFormPage() {
 
   if (loading) {
     return (
-      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+      <div className="card card-form" aria-busy="true">
         <Skeleton lines={6} />
       </div>
     )
@@ -99,7 +99,7 @@ export function EnvelopeFormPage() {
           <p>Budget-Topf für Fixkosten, variable Kosten, Sparen oder Schuldentilgung.</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 480 }}>
+      <div className="card card-form">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="name">Name</label>
@@ -150,14 +150,14 @@ export function EnvelopeFormPage() {
               Komma-getrennt, für den CAMT.053-Import.
             </p>
           </div>
-          <div className="form-row" style={{ alignItems: 'flex-end' }}>
+          <div className="form-row align-end">
             <div className="field">
               <label htmlFor="color">Farbe</label>
               <input id="color" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
             </div>
-            <div className="field" style={{ flex: '0 0 auto' }}>
+            <div className="field field-auto">
               <label id="preview-label">Vorschau</label>
-              <div aria-labelledby="preview-label" style={{ height: 42, display: 'flex', alignItems: 'center' }}>
+              <div aria-labelledby="preview-label" className="color-preview">
                 <KindIcon kind={form.kind} color={form.color} />
               </div>
             </div>

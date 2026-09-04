@@ -80,7 +80,7 @@ export function AccountFormPage() {
 
   if (loading) {
     return (
-      <div className="card" style={{ maxWidth: 480 }} aria-busy="true">
+      <div className="card card-form" aria-busy="true">
         <Skeleton lines={5} />
       </div>
     )
@@ -94,7 +94,7 @@ export function AccountFormPage() {
           <p>Girokonto, Sparkonto, Bargeld oder Kreditkarte.</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 480 }}>
+      <div className="card card-form">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="name">Name</label>

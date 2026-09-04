@@ -66,13 +66,13 @@ export function AccountDetailPage() {
               <th>Datum</th>
               <th>Beschreibung</th>
               <th>Umschlag</th>
-              <th style={{ textAlign: 'right' }}>Betrag</th>
+              <th className="text-right">Betrag</th>
             </tr>
           </thead>
           <tbody>
             {transactions.length === 0 ? (
               <tr>
-                <td colSpan={4} style={{ padding: 0 }}>
+                <td colSpan={4} className="table-empty-cell">
                   <div className="empty-state">Keine Buchungen auf diesem Konto.</div>
                 </td>
               </tr>

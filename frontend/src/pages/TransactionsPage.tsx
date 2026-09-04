@@ -55,7 +55,7 @@ export function TransactionsPage() {
         </div>
         <div className="page-header-actions">
           <MonthSwitcher label={label} onPrev={() => setMonth(prevYear, prevMonth)} onNext={() => setMonth(nextYear, nextMonth)} />
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ width: 'auto' }}>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="filter-select">
             <option value="">Alle Umschläge</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -72,7 +72,7 @@ export function TransactionsPage() {
 
       {loading ? (
         <div className="table-wrap" aria-busy="true">
-          <div style={{ padding: 20 }}>
+          <div className="content-pad">
             <Skeleton lines={6} />
           </div>
         </div>
@@ -91,7 +91,7 @@ export function TransactionsPage() {
                 <th>Gegenpartei</th>
                 <th>Konto</th>
                 <th>Umschlag</th>
-                <th style={{ textAlign: 'right' }}>Betrag</th>
+                <th className="text-right">Betrag</th>
                 <th />
               </tr>
             </thead>
@@ -106,7 +106,7 @@ export function TransactionsPage() {
                   <td>{t.account_name}</td>
                   <td>{t.category_name ?? '—'}</td>
                   <td className={`amount-cell ${t.is_expense ? 'negative' : 'positive'}`}>{formatMoney(t.amount)}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>
+                  <td className="nowrap">
                     <Link to={`/transactions/${t.id}/edit`} className="link-action">
                       <PencilSimple size={14} weight="bold" aria-hidden="true" />
                       bearbeiten

@@ -32,7 +32,7 @@ export function ImportHistoryPage() {
 
       {loading ? (
         <div className="table-wrap" aria-busy="true">
-          <div style={{ padding: 20 }}>
+          <div className="content-pad">
             <Skeleton lines={4} />
           </div>
         </div>

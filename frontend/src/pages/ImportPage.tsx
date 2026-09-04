@@ -115,7 +115,7 @@ export function ImportPage() {
       </div>
 
       {!rows ? (
-        <div className="card" style={{ maxWidth: 480 }}>
+        <div className="card card-form">
           <form onSubmit={handleParse} noValidate>
             <div className="field">
               <label htmlFor="account">Konto</label>
@@ -147,7 +147,7 @@ export function ImportPage() {
                   <th>Datum</th>
                   <th>Beschreibung</th>
                   <th>Gegenpartei</th>
-                  <th style={{ textAlign: 'right' }}>Betrag</th>
+                  <th className="text-right">Betrag</th>
                   <th>Umschlag</th>
                   <th>Status</th>
                 </tr>
@@ -173,7 +173,7 @@ export function ImportPage() {
                       <select
                         value={row.category_id ?? ''}
                         onChange={(e) => updateRow(index, { category_id: e.target.value ? Number(e.target.value) : null })}
-                        style={{ minWidth: 160 }}
+                        className="category-select"
                       >
                         <option value="">— ohne —</option>
                         {categories.map((c) => (
@@ -189,7 +189,7 @@ export function ImportPage() {
               </tbody>
             </table>
           </div>
-          <div className="form-actions" style={{ marginTop: 20 }}>
+          <div className="form-actions spaced">
             <button type="button" className="btn" disabled={confirming} onClick={() => void handleConfirm()}>
               {confirming ? 'Importiere …' : 'Import bestätigen'}
             </button>

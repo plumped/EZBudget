@@ -90,8 +90,8 @@ export function DebtsPage() {
               </div>
             </div>
 
-            <div className="form-row" style={{ marginTop: 24, alignItems: 'flex-end' }}>
-              <div className="field" style={{ minWidth: 220 }}>
+            <div className="form-row section-gap align-end">
+              <div className="field field-wide">
                 <label id="strategy-label" className="label-with-tooltip">
                   Strategie
                   <InfoTooltip
@@ -99,11 +99,10 @@ export function DebtsPage() {
                     text="Avalanche: höchster Zinssatz zuerst — spart am meisten Zinskosten. Snowball: kleinste Restschuld zuerst — schnelle Erfolgserlebnisse motivieren zum Durchhalten."
                   />
                 </label>
-                <div className="toggle-group" style={{ width: '100%' }} role="group" aria-labelledby="strategy-label">
+                <div className="toggle-group toggle-group-full" role="group" aria-labelledby="strategy-label">
                   <button
                     type="button"
                     className={strategy === 'avalanche' ? 'active' : ''}
-                    style={{ flex: 1 }}
                     aria-pressed={strategy === 'avalanche'}
                     onClick={() => handleStrategyChange('avalanche')}
                   >
@@ -112,7 +111,6 @@ export function DebtsPage() {
                   <button
                     type="button"
                     className={strategy === 'snowball' ? 'active' : ''}
-                    style={{ flex: 1 }}
                     aria-pressed={strategy === 'snowball'}
                     onClick={() => handleStrategyChange('snowball')}
                   >

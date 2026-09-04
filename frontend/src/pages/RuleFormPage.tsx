@@ -147,7 +147,7 @@ export function RuleFormPage() {
 
   if (loading) {
     return (
-      <div className="card" style={{ maxWidth: 560 }} aria-busy="true">
+      <div className="card card-form-wide" aria-busy="true">
         <Skeleton lines={8} />
       </div>
     )
@@ -161,7 +161,7 @@ export function RuleFormPage() {
           <p>Legt fest, welcher Umschlag beim CAMT.053-Import automatisch zugeordnet wird.</p>
         </div>
       </div>
-      <div className="card" style={{ maxWidth: 560 }}>
+      <div className="card card-form-wide">
         <form onSubmit={handleSubmit} noValidate>
           <div className="field">
             <label htmlFor="name">Name (optional)</label>
@@ -171,7 +171,7 @@ export function RuleFormPage() {
           <div className="rule-condition-group">
             <div className="rule-condition-label">Beschreibung</div>
             <div className="form-row">
-              <div className="field" style={{ flex: '0 0 160px' }}>
+              <div className="field field-fixed">
                 <select
                   aria-label="Bedingung für Beschreibung"
                   value={conditions.description_match_type}
@@ -198,7 +198,7 @@ export function RuleFormPage() {
           <div className="rule-condition-group">
             <div className="rule-condition-label">Gegenpartei</div>
             <div className="form-row">
-              <div className="field" style={{ flex: '0 0 160px' }}>
+              <div className="field field-fixed">
                 <select
                   aria-label="Bedingung für Gegenpartei"
                   value={conditions.counterparty_match_type}
@@ -305,7 +305,7 @@ export function RuleFormPage() {
                     <th>Beschreibung</th>
                     <th>Gegenpartei</th>
                     <th>Umschlag aktuell</th>
-                    <th style={{ textAlign: 'right' }}>Betrag</th>
+                    <th className="text-right">Betrag</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -97,7 +97,7 @@ export function DashboardPage() {
       </div>
       <div className="row-list">
         {data.fixed.categories.length === 0 ? (
-          <div style={{ padding: '20px' }}>
+          <div className="content-pad">
             <EmptyState>
               Noch keine Fixkosten-Umschläge. <Link to="/envelopes">Jetzt anlegen</Link>
             </EmptyState>
@@ -123,7 +123,7 @@ export function DashboardPage() {
       </div>
       <div className="row-list">
         {data.variable.categories.length === 0 ? (
-          <div style={{ padding: '20px' }}>
+          <div className="content-pad">
             <EmptyState>Noch keine Umschläge für variable Kosten.</EmptyState>
           </div>
         ) : (
@@ -177,7 +177,7 @@ export function DashboardPage() {
       </div>
       <div className="row-list">
         {data.recent_transactions.length === 0 ? (
-          <div style={{ padding: '20px' }}>
+          <div className="content-pad">
             <EmptyState>
               Noch keine Buchungen. <Link to="/import">CAMT.053 importieren</Link> oder{' '}
               <Link to="/transactions/add">manuell erfassen</Link>.
