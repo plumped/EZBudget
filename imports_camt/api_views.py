@@ -146,10 +146,13 @@ class ImportConfirmView(APIView):
 
         created, skipped = 0, 0
         for row in rows:
-            if not row.get("include"):
-                continue
+            # Duplikat-Zeilen zählen als übersprungen, auch wenn das Frontend ihre
+            # Checkbox deaktiviert und "include" daher nie true sendet — sonst
+            # bräche die include-Prüfung unten schon vorher ab und skipped bliebe 0.
             if row.get("is_duplicate"):
                 skipped += 1
+                continue
+            if not row.get("include"):
                 continue
             try:
                 amount = Decimal(str(row["amount"]))

@@ -164,6 +164,28 @@ class ImportApiTests(TestCase):
         self.assertEqual(ImportBatch.objects.count(), 1)
         self.assertEqual(Transaction.objects.get().category_id, self.category.id)
 
+    def test_confirm_view_counts_duplicate_rows_as_skipped(self):
+        # Das Frontend deaktiviert die Checkbox für Duplikat-Zeilen und schickt
+        # daher include=False für sie — trotzdem müssen sie als "skipped" zählen,
+        # nicht einfach stillschweigend ignoriert werden.
+        rows = [
+            {
+                "date": "2026-09-02", "amount": "-84.30", "description": "Einkauf Migros",
+                "counterparty": "Migros", "entry_ref": "REF-1001", "category_id": None,
+                "include": False, "is_duplicate": True,
+            },
+        ]
+        response = self.client.post(
+            "/api/import/confirm/",
+            {"account": self.account.id, "filename": "beispiel_camt053.xml", "rows": rows},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["created"], 0)
+        self.assertEqual(data["skipped"], 1)
+        self.assertEqual(ImportBatch.objects.get().transactions_skipped, 1)
+
     def test_history_view_lists_batches(self):
         ImportBatch.objects.create(account=self.account, filename="a.xml", transactions_created=2, transactions_skipped=1)
         response = self.client.get("/api/import/history/")
