@@ -281,6 +281,18 @@ Dark-Palette entsprechend doppelt: einmal unter `prefers-color-scheme: dark` (nu
 Wahl in beide Richtungen über die Systemeinstellung gewinnt. Umschaltbar unter
 **Einstellungen → Darstellung**.
 
+### 5.16 Icon-Katalog für Umschläge
+
+`Category.icon` (bislang ein ungenutztes Feld mit pauschalem Emoji-Default) ist jetzt über
+`IconPicker` (`frontend/src/components/IconPicker.tsx`) im Umschlag-Formular frei aus einem
+kuratierten, nach Themen gruppierten Emoji-Katalog wählbar (Finanzen, Essen & Haushalt,
+Wohnen, Verkehr, Gesundheit, Freizeit & Familie, Sonstiges). `KindIcon` rendert das gewählte
+Icon überall, wo ein Umschlag auftaucht (Liste, Karten-Ansicht, Detailseite, Dashboard) —
+ohne Auswahl fällt `Category.save()` serverseitig auf ein zur Art passendes Standard-Icon
+zurück (`Category.KIND_ICON_DEFAULTS`), statt wie zuvor pauschal 💰 für alle Arten zu setzen;
+bestehende Umschläge mit dem alten Pauschal-Icon wurden per Datenmigration entsprechend
+umgestellt.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

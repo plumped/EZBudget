@@ -100,7 +100,7 @@ export function EnvelopesPage() {
         <div className="row-list">
           {categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <KindIcon kind={c.kind} color={c.color} />
+              <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
                   {c.name}
@@ -132,7 +132,7 @@ export function EnvelopesPage() {
             <div className={`envelope-card${c.is_archived ? ' archived' : ''}`} key={c.id}>
               <div className="envelope-flap" style={{ background: `${c.color}33` }} />
               <div className="envelope-seal">
-                <KindIcon kind={c.kind} color={c.color} />
+                <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               </div>
               <div className="envelope-body">
                 <Link to={`/envelopes/${c.id}`} className="envelope-name">

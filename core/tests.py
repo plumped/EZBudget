@@ -368,6 +368,32 @@ class RecurringApiTests(TestCase):
         self.assertEqual(Transaction.objects.count(), 1)
 
 
+class CategoryIconDefaultTests(TestCase):
+    def test_blank_icon_falls_back_to_kind_default(self):
+        category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE, icon="")
+        self.assertEqual(category.icon, Category.KIND_ICON_DEFAULTS[Category.Kind.VARIABLE])
+
+    def test_explicit_icon_is_preserved(self):
+        category = Category.objects.create(name="Ferien", kind=Category.Kind.SAVINGS, icon="✈️")
+        self.assertEqual(category.icon, "✈️")
+
+    def test_different_kinds_get_different_default_icons(self):
+        fixed = Category.objects.create(name="Miete", kind=Category.Kind.FIXED, icon="")
+        debt = Category.objects.create(name="Kredit", kind=Category.Kind.DEBT, icon="")
+        self.assertNotEqual(fixed.icon, debt.icon)
+
+    def test_icon_exposed_via_api(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Lohn", "kind": "income", "monthly_budget": "0"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["icon"], Category.KIND_ICON_DEFAULTS[Category.Kind.INCOME])
+
+
 class CategoryBudgetHistoryTests(TestCase):
     """save() schreibt bei Anlage und bei jeder echten Budgetänderung einen
     Historie-Eintrag — Grundlage für rückwirkend korrekte Übertragsberechnung."""

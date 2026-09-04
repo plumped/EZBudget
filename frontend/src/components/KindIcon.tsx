@@ -9,11 +9,17 @@ const ICONS: Record<CategoryKind, Icon> = {
   savings: PiggyBank,
 }
 
-export function KindIcon({ kind, color }: { kind: CategoryKind; color?: string }) {
+export function KindIcon({ kind, color, icon }: { kind: CategoryKind; color?: string; icon?: string }) {
   const IconComponent = ICONS[kind]
   return (
     <div className="row-icon" style={color ? { background: `${color}1a`, color } : undefined}>
-      <IconComponent size={18} weight="regular" aria-hidden="true" />
+      {icon ? (
+        <span className="emoji-glyph" aria-hidden="true">
+          {icon}
+        </span>
+      ) : (
+        <IconComponent size={18} weight="regular" aria-hidden="true" />
+      )}
     </div>
   )
 }

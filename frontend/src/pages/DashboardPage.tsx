@@ -105,7 +105,7 @@ export function DashboardPage() {
         ) : (
           data.fixed.categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <KindIcon kind={c.kind} color={c.color} />
+              <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
                   {c.name}
@@ -129,7 +129,7 @@ export function DashboardPage() {
         ) : (
           data.variable.categories.map((c) => (
             <div className="row-item" key={c.id}>
-              <KindIcon kind={c.kind} color={c.color} />
+              <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}`} className="row-title">
                   {c.name}

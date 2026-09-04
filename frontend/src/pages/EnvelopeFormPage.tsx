@@ -4,7 +4,7 @@ import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Category, CategoryKind } from '../api/types'
 import { FieldError } from '../components/FieldError'
-import { KindIcon } from '../components/KindIcon'
+import { IconPicker } from '../components/IconPicker'
 import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 
@@ -16,12 +16,23 @@ const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
   { value: 'savings', label: 'Sparen' },
 ]
 
+// Muss zu Category.KIND_ICON_DEFAULTS (core/models.py) passen — nur als sinnvoller
+// Startwert für neue Umschläge; das Backend würde bei leerem Icon ohnehin dasselbe setzen.
+const KIND_ICON_DEFAULTS: Record<CategoryKind, string> = {
+  fixed: '📄',
+  variable: '🛒',
+  income: '💵',
+  debt: '💳',
+  savings: '🐷',
+}
+
 interface FormState {
   name: string
   kind: CategoryKind
   monthly_budget: string
   keywords: string
   color: string
+  icon: string
   target_amount: string
   target_date: string
   is_archived: boolean
@@ -33,6 +44,7 @@ const EMPTY: FormState = {
   monthly_budget: '0',
   keywords: '',
   color: '#0f172a',
+  icon: KIND_ICON_DEFAULTS.variable,
   target_amount: '',
   target_date: '',
   is_archived: false,
@@ -59,6 +71,7 @@ export function EnvelopeFormPage() {
         monthly_budget: c.monthly_budget,
         keywords: c.keywords,
         color: c.color,
+        icon: c.icon,
         target_amount: c.target_amount ?? '',
         target_date: c.target_date ?? '',
         is_archived: c.is_archived,
@@ -191,10 +204,8 @@ export function EnvelopeFormPage() {
               <input id="color" type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
             </div>
             <div className="field field-auto">
-              <label id="preview-label">Vorschau</label>
-              <div aria-labelledby="preview-label" className="color-preview">
-                <KindIcon kind={form.kind} color={form.color} />
-              </div>
+              <label>Icon</label>
+              <IconPicker value={form.icon} onChange={(icon) => setForm({ ...form, icon })} color={form.color} />
             </div>
           </div>
           <div className="field checkbox-field">

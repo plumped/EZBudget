@@ -64,6 +64,16 @@ class Category(models.Model):
         DEBT = "debt", "Schuldentilgung"
         SAVINGS = "savings", "Sparen"
 
+    # Fallback, falls kein Icon aus dem Frontend-Katalog gewählt wurde — pro Art,
+    # damit neue Umschläge nicht alle pauschal dasselbe Icon zeigen.
+    KIND_ICON_DEFAULTS = {
+        Kind.FIXED: "\U0001F4C4",  # 📄
+        Kind.VARIABLE: "\U0001F6D2",  # 🛒
+        Kind.INCOME: "\U0001F4B5",  # 💵
+        Kind.DEBT: "\U0001F4B3",  # 💳
+        Kind.SAVINGS: "\U0001F437",  # 🐷
+    }
+
     name = models.CharField(max_length=100)
     kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.VARIABLE)
     monthly_budget = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0"))
@@ -73,7 +83,10 @@ class Category(models.Model):
         help_text="Komma-getrennte Stichworte für die automatische Zuordnung beim CAMT.053-Import (z.B. 'migros, coop, denner')",
     )
     color = models.CharField(max_length=7, default="#6366f1")
-    icon = models.CharField(max_length=10, default="\U0001F4B0")
+    icon = models.CharField(
+        max_length=10, blank=True, default="",
+        help_text="Emoji aus dem Icon-Katalog im Frontend — bei leerem Wert wird beim Speichern ein zur Art passendes Icon gesetzt.",
+    )
     target_amount = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
         help_text="Sparziel — optionaler Zielbetrag, z.B. für einen Sparumschlag.",
@@ -95,6 +108,9 @@ class Category(models.Model):
         return [k.strip().lower() for k in self.keywords.split(",") if k.strip()]
 
     def save(self, *args, **kwargs):
+        if not self.icon:
+            self.icon = self.KIND_ICON_DEFAULTS.get(self.kind, "\U0001F4B0")
+
         # Budget-Historie mitschreiben, damit rollover_balance()/budget_for_month()
         # vergangene Monate rückwirkend mit dem damals gültigen Budget statt dem
         # aktuellen rechnen können (siehe CategoryBudgetHistory unten).

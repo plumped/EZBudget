@@ -49,7 +49,7 @@ export function EnvelopeDetailPage() {
     <>
       <div className="page-header">
         <div className="detail-header">
-          <KindIcon kind={category.kind} color={category.color} />
+          <KindIcon kind={category.kind} color={category.color} icon={category.icon} />
           <div>
             <h1>{category.name}</h1>
             <p>
