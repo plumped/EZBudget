@@ -92,7 +92,13 @@ export function DebtsPage() {
 
             <div className="form-row" style={{ marginTop: 24, alignItems: 'flex-end' }}>
               <div className="field" style={{ minWidth: 220 }}>
-                <label id="strategy-label">Strategie</label>
+                <label id="strategy-label" className="label-with-tooltip">
+                  Strategie
+                  <InfoTooltip
+                    label="Was bedeuten die Strategien?"
+                    text="Avalanche: höchster Zinssatz zuerst — spart am meisten Zinskosten. Snowball: kleinste Restschuld zuerst — schnelle Erfolgserlebnisse motivieren zum Durchhalten."
+                  />
+                </label>
                 <div className="toggle-group" style={{ width: '100%' }} role="group" aria-labelledby="strategy-label">
                   <button
                     type="button"
@@ -112,16 +118,6 @@ export function DebtsPage() {
                   >
                     Snowball
                   </button>
-                </div>
-                <div className="strategy-legend">
-                  <span className="strategy-legend-item">
-                    Höchster Zins zuerst
-                    <InfoTooltip text="Avalanche: Das Extra-Budget fliesst zuerst in die Schuld mit dem höchsten Zinssatz. Das minimiert die gesamten Zinskosten." />
-                  </span>
-                  <span className="strategy-legend-item">
-                    Kleinste Restschuld zuerst
-                    <InfoTooltip text="Snowball: Das Extra-Budget fliesst zuerst in die Schuld mit der kleinsten Restschuld. Schnelle Erfolgserlebnisse motivieren zum Durchhalten." />
-                  </span>
                 </div>
               </div>
               <div className="field">

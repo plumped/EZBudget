@@ -1126,21 +1126,6 @@ input[type='checkbox'] {
   visibility: visible;
   transform: translateX(-50%) translateY(0);
 }
-.strategy-legend {
-  display: flex;
-  gap: 16px;
-  margin-top: 8px;
-}
-.strategy-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-  font-size: 0.75rem;
-  color: var(--color-muted-fg);
-}
-
 .payoff-order {
   list-style: none;
   padding: 0;
