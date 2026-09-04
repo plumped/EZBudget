@@ -218,8 +218,10 @@ Finance-App nicht passt; gezielte Nachfragen lieferten die tatsächlich verwende
   explizit für Finance/Accessibility empfohlen.
 - **Icons**: Emoji-Chrome (Sidebar, Buttons, Toasts, Empty-States) durch
   [`@phosphor-icons/react`](https://phosphoricons.com/) ersetzt — das vom Skill als
-  Anti-Pattern geflaggte "Emoji als Icon" betraf nur UI-Chrome. Das frei wählbare
-  Umschlag-Icon (z.B. 🛒) bleibt bewusst Emoji, da es Nutzerinhalt ist, kein UI-Element.
+  Anti-Pattern geflaggte "Emoji als Icon" betraf ursprünglich nur UI-Chrome, das frei
+  wählbare Umschlag-Icon blieb zunächst bewusst Emoji als "Nutzerinhalt". Diese Ausnahme
+  wurde später verworfen: die App verwendet jetzt konsequent Phosphor-Icons, auch für das
+  Umschlag-Icon (siehe [5.16](#516-icon-katalog-für-umschläge)).
 - **Barrierefreiheit**: Skeleton-Loading (`aria-busy`) statt reinem Text, strukturierte
   Formularfehler (`aria-describedby`/`aria-invalid` pro Feld statt einem Sammelfehler),
   Fokus-Management bei fehlgeschlagenem Submit, Toasts mit `role="status"`/`"alert"`,
@@ -283,15 +285,20 @@ Wahl in beide Richtungen über die Systemeinstellung gewinnt. Umschaltbar unter
 
 ### 5.16 Icon-Katalog für Umschläge
 
-`Category.icon` (bislang ein ungenutztes Feld mit pauschalem Emoji-Default) ist jetzt über
-`IconPicker` (`frontend/src/components/IconPicker.tsx`) im Umschlag-Formular frei aus einem
-kuratierten, nach Themen gruppierten Emoji-Katalog wählbar (Finanzen, Essen & Haushalt,
-Wohnen, Verkehr, Gesundheit, Freizeit & Familie, Sonstiges). `KindIcon` rendert das gewählte
-Icon überall, wo ein Umschlag auftaucht (Liste, Karten-Ansicht, Detailseite, Dashboard) —
-ohne Auswahl fällt `Category.save()` serverseitig auf ein zur Art passendes Standard-Icon
-zurück (`Category.KIND_ICON_DEFAULTS`), statt wie zuvor pauschal 💰 für alle Arten zu setzen;
-bestehende Umschläge mit dem alten Pauschal-Icon wurden per Datenmigration entsprechend
-umgestellt.
+`Category.icon` (bislang ein ungenutztes Feld) ist jetzt über `IconPicker`
+(`frontend/src/components/IconPicker.tsx`) im Umschlag-Formular frei aus einem kuratierten,
+nach Themen gruppierten Katalog wählbar (Finanzen, Essen & Haushalt, Wohnen, Verkehr,
+Gesundheit, Freizeit & Familie, Sonstiges) — **Phosphor-Icons, kein Emoji**, damit
+Umschlag-Icons genau wie der Rest der Oberfläche aussehen. Gespeichert wird der
+`@phosphor-icons/react`-Exportname (z.B. `"ShoppingCart"`); `iconCatalog.ts` bildet die
+zentrale Registry aus Katalog-Gruppen und Name-→-Komponente-Zuordnung, die sowohl
+`IconPicker` als auch `KindIcon` verwenden. `KindIcon` rendert das gewählte Icon überall, wo
+ein Umschlag auftaucht (Liste, Karten-Ansicht, Detailseite, Dashboard) — ohne Auswahl fällt
+`Category.save()` serverseitig auf ein zur Art passendes Standard-Icon zurück
+(`Category.KIND_ICON_DEFAULTS`, ebenfalls ein Phosphor-Name) statt pauschal dasselbe Icon für
+alle Arten zu setzen. Eine erste Version dieses Features nutzte fälschlich Emoji (siehe
+[5.9](#59-design-überarbeitung-mit-dem-ui-ux-pro-max-skill)) — eine spätere Migration hat
+alle Umschläge auf die Phosphor-Namen umgestellt.
 
 ## 6. Nächste Schritte
 

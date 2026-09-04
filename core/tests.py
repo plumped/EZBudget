@@ -374,8 +374,8 @@ class CategoryIconDefaultTests(TestCase):
         self.assertEqual(category.icon, Category.KIND_ICON_DEFAULTS[Category.Kind.VARIABLE])
 
     def test_explicit_icon_is_preserved(self):
-        category = Category.objects.create(name="Ferien", kind=Category.Kind.SAVINGS, icon="✈️")
-        self.assertEqual(category.icon, "✈️")
+        category = Category.objects.create(name="Ferien", kind=Category.Kind.SAVINGS, icon="Airplane")
+        self.assertEqual(category.icon, "Airplane")
 
     def test_different_kinds_get_different_default_icons(self):
         fixed = Category.objects.create(name="Miete", kind=Category.Kind.FIXED, icon="")

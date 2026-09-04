@@ -484,11 +484,6 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   background: var(--color-muted);
   color: var(--color-muted-fg);
 }
-.emoji-glyph {
-  font-size: 18px;
-  line-height: 1;
-}
-
 /* ---------- Icon picker ---------- */
 .icon-picker summary {
   display: inline-flex;
@@ -552,11 +547,11 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   justify-content: center;
   width: 38px;
   height: 38px;
-  font-size: 1.2rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: var(--color-muted);
-  transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+  color: var(--color-muted-fg);
+  transition: background var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
 }
 .icon-picker-grid button:hover {
   background: var(--color-border);
@@ -564,6 +559,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
 .icon-picker-grid button.active {
   border-color: var(--color-primary);
   background: var(--color-secondary-soft);
+  color: var(--color-secondary);
 }
 .row-dot {
   width: 10px;

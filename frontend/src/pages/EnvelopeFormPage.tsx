@@ -19,11 +19,11 @@ const KIND_OPTIONS: { value: CategoryKind; label: string }[] = [
 // Muss zu Category.KIND_ICON_DEFAULTS (core/models.py) passen — nur als sinnvoller
 // Startwert für neue Umschläge; das Backend würde bei leerem Icon ohnehin dasselbe setzen.
 const KIND_ICON_DEFAULTS: Record<CategoryKind, string> = {
-  fixed: '📄',
-  variable: '🛒',
-  income: '💵',
-  debt: '💳',
-  savings: '🐷',
+  fixed: 'FileText',
+  variable: 'ShoppingCart',
+  income: 'TrendUp',
+  debt: 'CreditCard',
+  savings: 'PiggyBank',
 }
 
 interface FormState {

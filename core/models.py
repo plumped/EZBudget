@@ -65,13 +65,15 @@ class Category(models.Model):
         SAVINGS = "savings", "Sparen"
 
     # Fallback, falls kein Icon aus dem Frontend-Katalog gewählt wurde — pro Art,
-    # damit neue Umschläge nicht alle pauschal dasselbe Icon zeigen.
+    # damit neue Umschläge nicht alle pauschal dasselbe Icon zeigen. Werte sind
+    # @phosphor-icons/react-Exportnamen (siehe frontend/src/components/iconCatalog.ts),
+    # keine Emoji — die App verwendet durchgehend Phosphor-Icons als UI-Chrome.
     KIND_ICON_DEFAULTS = {
-        Kind.FIXED: "\U0001F4C4",  # 📄
-        Kind.VARIABLE: "\U0001F6D2",  # 🛒
-        Kind.INCOME: "\U0001F4B5",  # 💵
-        Kind.DEBT: "\U0001F4B3",  # 💳
-        Kind.SAVINGS: "\U0001F437",  # 🐷
+        Kind.FIXED: "FileText",
+        Kind.VARIABLE: "ShoppingCart",
+        Kind.INCOME: "TrendUp",
+        Kind.DEBT: "CreditCard",
+        Kind.SAVINGS: "PiggyBank",
     }
 
     name = models.CharField(max_length=100)
@@ -84,8 +86,8 @@ class Category(models.Model):
     )
     color = models.CharField(max_length=7, default="#6366f1")
     icon = models.CharField(
-        max_length=10, blank=True, default="",
-        help_text="Emoji aus dem Icon-Katalog im Frontend — bei leerem Wert wird beim Speichern ein zur Art passendes Icon gesetzt.",
+        max_length=32, blank=True, default="",
+        help_text="Phosphor-Icon-Name aus dem Frontend-Katalog — bei leerem Wert wird beim Speichern ein zur Art passendes Icon gesetzt.",
     )
     target_amount = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,

@@ -1,14 +1,5 @@
 import { useRef } from 'react'
-
-const ICON_GROUPS: { label: string; icons: string[] }[] = [
-  { label: 'Finanzen', icons: ['💰', '💳', '💵', '🏦', '📈', '💸', '🐷', '🧾'] },
-  { label: 'Essen & Haushalt', icons: ['🛒', '🍎', '🍽️', '☕', '🧺', '🧹', '🛋️'] },
-  { label: 'Wohnen', icons: ['🏠', '💡', '🔥', '🚿', '📶', '🔧'] },
-  { label: 'Verkehr', icons: ['🚗', '⛽', '🚌', '🚲', '✈️', '🅿️'] },
-  { label: 'Gesundheit', icons: ['💊', '🏥', '🦷', '🏋️', '🧘'] },
-  { label: 'Freizeit & Familie', icons: ['🎮', '🎬', '📚', '🎉', '👶', '🐾', '🎁'] },
-  { label: 'Sonstiges', icons: ['📄', '🛍️', '👕', '✂️', '🔖', '⭐'] },
-]
+import { ICON_CATALOG, ICON_COMPONENTS } from './iconCatalog'
 
 interface Props {
   value: string
@@ -18,6 +9,7 @@ interface Props {
 
 export function IconPicker({ value, onChange, color }: Props) {
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  const SelectedIcon = ICON_COMPONENTS[value]
 
   function select(icon: string) {
     onChange(icon)
@@ -28,29 +20,30 @@ export function IconPicker({ value, onChange, color }: Props) {
     <details className="icon-picker" ref={detailsRef}>
       <summary>
         <span className="row-icon" style={color ? { background: `${color}1a`, color } : undefined}>
-          <span className="emoji-glyph" aria-hidden="true">
-            {value || '❓'}
-          </span>
+          {SelectedIcon ? <SelectedIcon size={18} weight="regular" aria-hidden="true" /> : null}
         </span>
         Icon ändern
       </summary>
       <div className="icon-picker-panel">
-        {ICON_GROUPS.map((group) => (
+        {ICON_CATALOG.map((group) => (
           <div className="icon-picker-group" key={group.label}>
             <div className="icon-picker-group-label">{group.label}</div>
             <div className="icon-picker-grid" role="group" aria-label={group.label}>
-              {group.icons.map((icon) => (
-                <button
-                  key={icon}
-                  type="button"
-                  className={icon === value ? 'active' : ''}
-                  aria-pressed={icon === value}
-                  aria-label={icon}
-                  onClick={() => select(icon)}
-                >
-                  {icon}
-                </button>
-              ))}
+              {group.icons.map((name) => {
+                const OptionIcon = ICON_COMPONENTS[name]
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    className={name === value ? 'active' : ''}
+                    aria-pressed={name === value}
+                    aria-label={name}
+                    onClick={() => select(name)}
+                  >
+                    <OptionIcon size={20} weight="regular" aria-hidden="true" />
+                  </button>
+                )
+              })}
             </div>
           </div>
         ))}
