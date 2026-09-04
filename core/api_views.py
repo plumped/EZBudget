@@ -14,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .budget_month import budget_period_bounds
+from .budget_month import budget_period_bounds, budget_period_for_date, get_month_start_day
 from .models import Account, BudgetSettings, Category, RecurringTransaction, Transaction
 from .serializers import (
     AccountSerializer,
@@ -171,7 +171,10 @@ class TransactionViewSet(viewsets.ModelViewSet):
             start, end = budget_period_bounds(int(params["year"]), int(params["month"]))
             qs = qs.filter(date__gte=start, date__lte=end)
         if params.get("category"):
-            qs = qs.filter(category_id=params["category"])
+            if params["category"] == "none":
+                qs = qs.filter(category__isnull=True)
+            else:
+                qs = qs.filter(category_id=params["category"])
         if params.get("account"):
             qs = qs.filter(account_id=params["account"])
         if params.get("search"):
@@ -278,6 +281,12 @@ class DashboardView(APIView):
 
         recent_transactions = Transaction.objects.select_related("account", "category")[:8]
 
+        # Transfers sind absichtlich ohne Umschlag (siehe TransferView) — zählen hier nicht als
+        # "vergessen", nur echte Buchungen ohne Zuordnung sollen die Warnung auslösen.
+        uncategorized_count = Transaction.objects.filter(
+            date__gte=first, date__lte=last, category__isnull=True, transfer_pair__isnull=True
+        ).count()
+
         return Response(
             {
                 "year": year,
@@ -305,5 +314,108 @@ class DashboardView(APIView):
                 "open_debts_count": open_debts.count(),
                 "recent_transactions": TransactionSerializer(recent_transactions, many=True, context=ctx).data,
                 "generated_recurring": TransactionSerializer(generated, many=True, context=ctx).data,
+                "uncategorized_count": uncategorized_count,
+            }
+        )
+
+
+class TrendsView(APIView):
+    """Verlaufsdaten über mehrere Budget-Monate — Basis für die Trends & Insights-Seite:
+    Einnahmen/Ausgaben pro Monat, Ausgaben-Verlauf pro Umschlag, Top-Ausgaben-Umschläge
+    und ein Jahresvergleich für den aktuellsten Monat im Zeitraum."""
+
+    def get(self, request):
+        try:
+            months_count = int(request.query_params.get("months", 12))
+        except (TypeError, ValueError):
+            months_count = 12
+        months_count = max(1, min(months_count, 24))
+
+        start_day = get_month_start_day()
+        anchor_year, anchor_month = budget_period_for_date(date.today(), start_day)
+
+        periods = []
+        y, m = anchor_year, anchor_month
+        for _ in range(months_count):
+            periods.append((y, m))
+            y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+        periods.reverse()
+
+        months_payload = []
+        income_by_month = []
+        expense_by_month = []
+        net_by_month = []
+        for py, pm in periods:
+            start, end = budget_period_bounds(py, pm, start_day)
+            income = Transaction.objects.filter(
+                date__gte=start, date__lte=end, amount__gt=0, transfer_pair__isnull=True
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+            expense = -(
+                Transaction.objects.filter(
+                    date__gte=start, date__lte=end, amount__lt=0, transfer_pair__isnull=True
+                ).aggregate(total=Sum("amount"))["total"]
+                or Decimal("0")
+            )
+            months_payload.append({"year": py, "month": pm})
+            income_by_month.append(str(income))
+            expense_by_month.append(str(expense))
+            net_by_month.append(str(income - expense))
+
+        categories = Category.objects.filter(is_archived=False).exclude(kind=Category.Kind.INCOME)
+        category_payload = []
+        totals = {}
+        for c in categories:
+            spent_series = [c.spent_in_month(py, pm) for py, pm in periods]
+            totals[c.id] = sum(spent_series, Decimal("0"))
+            category_payload.append(
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "kind": c.kind,
+                    "color": c.color,
+                    "icon": c.icon,
+                    "spent_by_month": [str(v) for v in spent_series],
+                }
+            )
+
+        top_categories = sorted(
+            (c for c in category_payload if totals[c["id"]] > 0),
+            key=lambda c: totals[c["id"]],
+            reverse=True,
+        )[:5]
+        top_categories = [
+            {"id": c["id"], "name": c["name"], "color": c["color"], "total_spent": str(totals[c["id"]])}
+            for c in top_categories
+        ]
+
+        previous_year = anchor_year - 1
+        prev_start, prev_end = budget_period_bounds(previous_year, anchor_month, start_day)
+        previous_income = Transaction.objects.filter(
+            date__gte=prev_start, date__lte=prev_end, amount__gt=0, transfer_pair__isnull=True
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+        previous_expense = -(
+            Transaction.objects.filter(
+                date__gte=prev_start, date__lte=prev_end, amount__lt=0, transfer_pair__isnull=True
+            ).aggregate(total=Sum("amount"))["total"]
+            or Decimal("0")
+        )
+
+        return Response(
+            {
+                "months": months_payload,
+                "income_by_month": income_by_month,
+                "expense_by_month": expense_by_month,
+                "net_by_month": net_by_month,
+                "categories": category_payload,
+                "top_categories": top_categories,
+                "year_over_year": {
+                    "current_year": anchor_year,
+                    "current_month": anchor_month,
+                    "current_income": income_by_month[-1],
+                    "current_expense": expense_by_month[-1],
+                    "previous_year": previous_year,
+                    "previous_income": str(previous_income),
+                    "previous_expense": str(previous_expense),
+                },
             }
         )

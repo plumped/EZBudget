@@ -1,4 +1,4 @@
-import { ArrowRight } from '@phosphor-icons/react'
+import { ArrowRight, Warning } from '@phosphor-icons/react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -66,6 +66,15 @@ export function DashboardPage() {
         </div>
         <MonthSwitcher label={label} onPrev={() => setMonth(prevYear, prevMonth)} onNext={() => setMonth(nextYear, nextMonth)} />
       </div>
+
+      {data.uncategorized_count > 0 && (
+        <div className="alert-banner warning">
+          <Warning size={18} weight="fill" className="icon" aria-hidden="true" />
+          {data.uncategorized_count} {data.uncategorized_count === 1 ? 'Buchung ist' : 'Buchungen sind'} diesen Monat
+          keinem Umschlag zugewiesen.
+          <Link to={`/transactions?year=${year}&month=${month}&category=none`}>Jetzt zuordnen</Link>
+        </div>
+      )}
 
       <div className="card">
         <div className="hero-label">Gesamtguthaben, alle Konten</div>

@@ -27,6 +27,7 @@ import { SignupPage } from './pages/SignupPage'
 import { TransactionFormPage } from './pages/TransactionFormPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 import { TransferFormPage } from './pages/TransferFormPage'
+import { TrendsPage } from './pages/TrendsPage'
 
 export default function App() {
   return (
@@ -70,6 +71,8 @@ export default function App() {
                   <Route path="/debts/new" element={<DebtFormPage />} />
                   <Route path="/debts/:id" element={<DebtDetailPage />} />
                   <Route path="/debts/:id/edit" element={<DebtFormPage />} />
+
+                  <Route path="/trends" element={<TrendsPage />} />
 
                   <Route path="/import" element={<ImportPage />} />
                   <Route path="/import/history" element={<ImportHistoryPage />} />

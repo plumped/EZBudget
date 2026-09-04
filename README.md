@@ -300,6 +300,26 @@ alle Arten zu setzen. Eine erste Version dieses Features nutzte fälschlich Emoj
 [5.9](#59-design-überarbeitung-mit-dem-ui-ux-pro-max-skill)) — eine spätere Migration hat
 alle Umschläge auf die Phosphor-Namen umgestellt.
 
+### 5.17 Trends & Insights
+
+Neue Seite `/trends` (`TrendsPage.tsx`) über `GET /api/trends/?months=` (Default 12, max. 24
+Budget-Monate zurück): Verlauf von Einnahmen/Ausgaben als Liniendiagramm (`TrendChart.tsx`,
+eine generische Mehrfach-Serien-Variante des bestehenden Tilgungsverlauf-Charts — weiterhin
+selbst geschriebenes Inline-SVG, keine Chart-Bibliothek), ein Jahresvergleich (aktueller Monat
+vs. derselbe Monat im Vorjahr, für Einnahmen und Ausgaben), eine Top-Ausgaben-Rangliste über
+den Zeitraum sowie ein wählbarer Ausgabenverlauf pro Umschlag. `TrendsView`
+(`core/api_views.py`) aggregiert dafür pro Monat im Zeitraum über `Category.spent_in_month()`
+sowie Einnahmen-/Ausgaben-Summen (Transfers wie beim Dashboard ausgeschlossen).
+
+### 5.18 Warnung bei unzugeordneten Buchungen
+
+Das Dashboard zeigt eine Warnleiste, sobald im gewählten Monat Buchungen ohne Umschlag
+existieren (`DashboardView` liefert `uncategorized_count`, ohne Transfers — die sind
+absichtlich umschlaglos), mit Link direkt zu den gefilterten Buchungen. Der
+Umschlag-Filter auf der Buchungen-Seite hat dafür eine neue Option "Ohne Umschlag"
+(`category=none` in `TransactionViewSet.get_queryset()`), die auch per Deep-Link aus der
+Warnung vorausgewählt wird.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

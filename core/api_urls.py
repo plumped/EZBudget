@@ -16,6 +16,7 @@ urlpatterns = [
     path("auth/logout/", api_views.LogoutView.as_view(), name="api_logout"),
     path("auth/me/", api_views.MeView.as_view(), name="api_me"),
     path("dashboard/", api_views.DashboardView.as_view(), name="api_dashboard"),
+    path("trends/", api_views.TrendsView.as_view(), name="api_trends"),
     path("settings/", api_views.SettingsView.as_view(), name="api_settings"),
     path("transfers/", api_views.TransferView.as_view(), name="api_transfer"),
     path("", include(router.urls)),

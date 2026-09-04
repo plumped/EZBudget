@@ -1,6 +1,6 @@
 import { ArrowsLeftRight, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage } from '../api/errors'
 import type { Category, Transaction } from '../api/types'
@@ -13,9 +13,10 @@ import { formatMoney } from '../utils/format'
 
 export function TransactionsPage() {
   const { year, month, label, prevYear, prevMonth, nextYear, nextMonth, setMonth } = useMonthParam()
+  const [searchParams] = useSearchParams()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState(() => searchParams.get('category') ?? '')
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -105,6 +106,7 @@ export function TransactionsPage() {
         />
         <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="filter-select">
           <option value="">Alle Umschläge</option>
+          <option value="none">Ohne Umschlag</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}

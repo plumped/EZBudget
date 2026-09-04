@@ -1,6 +1,7 @@
 import {
   ArrowsClockwise,
   Bank,
+  ChartLine,
   ChartLineDown,
   Envelope,
   Funnel,
@@ -22,6 +23,7 @@ const NAV_ITEMS: { to: string; label: string; icon: Icon; end?: boolean }[] = [
   { to: '/accounts', label: 'Konten', icon: Bank },
   { to: '/recurring', label: 'Daueraufträge', icon: ArrowsClockwise },
   { to: '/debts', label: 'Schulden', icon: ChartLineDown },
+  { to: '/trends', label: 'Trends', icon: ChartLine },
   { to: '/import', label: 'Import', icon: UploadSimple },
   { to: '/rules', label: 'Regeln', icon: Funnel },
   { to: '/settings', label: 'Einstellungen', icon: GearSix },

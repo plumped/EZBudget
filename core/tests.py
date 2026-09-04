@@ -655,3 +655,109 @@ class TransactionFilterTests(TestCase):
         data = response.json()
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["description"], "Coop Einkauf")
+
+    def test_category_none_returns_only_uncategorized(self):
+        response = self.client.get("/api/transactions/", {"category": "none"})
+        data = response.json()
+        self.assertEqual(len(data), 2)
+        self.assertTrue(all(t["category"] is None for t in data))
+
+
+class DashboardUncategorizedCountTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+        self.savings = Account.objects.create(name="Sparkonto")
+        self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+
+    def test_uncategorized_count_excludes_categorized_and_transfers(self):
+        today = date.today()
+        Transaction.objects.create(account=self.account, category=self.category, date=today, amount=Decimal("-20"))
+        Transaction.objects.create(account=self.account, date=today, amount=Decimal("-30"))
+        self.client.post(
+            "/api/transfers/",
+            {"from_account": self.account.id, "to_account": self.savings.id, "amount": "100", "date": today.isoformat()},
+            content_type="application/json",
+        )
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.json()["uncategorized_count"], 1)
+
+    def test_uncategorized_count_zero_when_all_categorized(self):
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date.today(), amount=Decimal("-20")
+        )
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.json()["uncategorized_count"], 0)
+
+
+class TrendsApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+        self.savings = Account.objects.create(name="Sparkonto")
+        self.category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+
+    def test_returns_requested_number_of_months(self):
+        response = self.client.get("/api/trends/", {"months": 6})
+        data = response.json()
+        self.assertEqual(len(data["months"]), 6)
+        self.assertEqual(len(data["income_by_month"]), 6)
+        self.assertEqual(len(data["expense_by_month"]), 6)
+        self.assertEqual(len(data["net_by_month"]), 6)
+
+    def test_months_param_is_clamped_to_24(self):
+        response = self.client.get("/api/trends/", {"months": 999})
+        self.assertEqual(len(response.json()["months"]), 24)
+
+    def test_current_month_income_and_expense_exclude_transfers(self):
+        today = date.today()
+        Transaction.objects.create(account=self.account, category=self.category, date=today, amount=Decimal("-50"))
+        Transaction.objects.create(account=self.account, date=today, amount=Decimal("2000"))
+        self.client.post(
+            "/api/transfers/",
+            {"from_account": self.account.id, "to_account": self.savings.id, "amount": "300", "date": today.isoformat()},
+            content_type="application/json",
+        )
+        response = self.client.get("/api/trends/", {"months": 1})
+        data = response.json()
+        self.assertEqual(data["income_by_month"][-1], "2000")
+        self.assertEqual(data["expense_by_month"][-1], "50")
+
+    def test_category_spent_series_reflects_monthly_spending(self):
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date.today(), amount=Decimal("-80")
+        )
+        response = self.client.get("/api/trends/", {"months": 3})
+        cat = next(c for c in response.json()["categories"] if c["id"] == self.category.id)
+        self.assertEqual(cat["spent_by_month"][-1], "80")
+        self.assertEqual(cat["spent_by_month"][0], "0")
+
+    def test_income_kind_categories_excluded_from_category_series(self):
+        income_cat = Category.objects.create(name="Lohn", kind=Category.Kind.INCOME)
+        response = self.client.get("/api/trends/", {"months": 1})
+        ids = [c["id"] for c in response.json()["categories"]]
+        self.assertNotIn(income_cat.id, ids)
+
+    def test_top_categories_ranked_by_total_spent(self):
+        big = Category.objects.create(name="Miete", kind=Category.Kind.FIXED)
+        Transaction.objects.create(account=self.account, category=big, date=date.today(), amount=Decimal("-1000"))
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date.today(), amount=Decimal("-50")
+        )
+        top = self.client.get("/api/trends/", {"months": 1}).json()["top_categories"]
+        self.assertEqual(top[0]["id"], big.id)
+        self.assertEqual(top[0]["total_spent"], "1000")
+
+    def test_year_over_year_compares_same_month_previous_year(self):
+        anchor_year, anchor_month = budget_period_for_date(date.today())
+        prev_start, _ = budget_period_bounds(anchor_year - 1, anchor_month)
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=prev_start, amount=Decimal("-40")
+        )
+        yoy = self.client.get("/api/trends/", {"months": 1}).json()["year_over_year"]
+        self.assertEqual(yoy["current_year"], anchor_year)
+        self.assertEqual(yoy["current_month"], anchor_month)
+        self.assertEqual(yoy["previous_year"], anchor_year - 1)
+        self.assertEqual(yoy["previous_expense"], "40")

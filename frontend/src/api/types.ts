@@ -145,6 +145,48 @@ export interface DashboardData {
   open_debts_count: number
   recent_transactions: Transaction[]
   generated_recurring: Transaction[]
+  uncategorized_count: number
+}
+
+export interface TrendMonth {
+  year: number
+  month: number
+}
+
+export interface TrendCategory {
+  id: number
+  name: string
+  kind: CategoryKind
+  color: string
+  icon: string
+  spent_by_month: string[]
+}
+
+export interface TrendTopCategory {
+  id: number
+  name: string
+  color: string
+  total_spent: string
+}
+
+export interface TrendYearOverYear {
+  current_year: number
+  current_month: number
+  current_income: string
+  current_expense: string
+  previous_year: number
+  previous_income: string
+  previous_expense: string
+}
+
+export interface TrendsData {
+  months: TrendMonth[]
+  income_by_month: string[]
+  expense_by_month: string[]
+  net_by_month: string[]
+  categories: TrendCategory[]
+  top_categories: TrendTopCategory[]
+  year_over_year: TrendYearOverYear
 }
 
 export interface ImportBatch {
