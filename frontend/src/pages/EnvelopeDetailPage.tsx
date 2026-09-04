@@ -8,7 +8,7 @@ import { KindIcon } from '../components/KindIcon'
 import { ProgressBar } from '../components/ProgressBar'
 import { Skeleton } from '../components/Skeleton'
 import { useMonthParam } from '../utils/useMonthParam'
-import { formatMoney, moneyClass } from '../utils/format'
+import { formatDate, formatMoney, formatMonthLabel, moneyClass } from '../utils/format'
 
 export function EnvelopeDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -84,6 +84,43 @@ export function EnvelopeDetailPage() {
           </div>
         </div>
       </div>
+
+      {category.target_amount && (
+        <div className="card">
+          <div className="hero-label">
+            Sparziel{category.target_date && ` — bis ${formatDate(category.target_date)}`}
+          </div>
+          <ProgressBar percent={category.target_progress_percent ?? 0} />
+          <p className="helptext">
+            {formatMoney(category.rollover)} / {formatMoney(category.target_amount)} CHF gespart (
+            {category.target_progress_percent ?? 0}%)
+          </p>
+        </div>
+      )}
+
+      {category.budget_history.length > 1 && (
+        <>
+          <div className="section-title">Budget-Verlauf</div>
+          <div className="table-wrap">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th>Ab</th>
+                  <th className="text-right">Monatsbudget</th>
+                </tr>
+              </thead>
+              <tbody>
+                {category.budget_history.map((h) => (
+                  <tr key={`${h.year}-${h.month}`}>
+                    <td>{formatMonthLabel(`${h.year}-${String(h.month).padStart(2, '0')}-01`, h.month)}</td>
+                    <td className="amount-cell">{formatMoney(h.monthly_budget)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <div className="section-title">Buchungen in diesem Umschlag</div>
       <div className="table-wrap">

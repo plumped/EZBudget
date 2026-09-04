@@ -366,3 +366,266 @@ class RecurringApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["created_count"], 1)
         self.assertEqual(Transaction.objects.count(), 1)
+
+
+class CategoryBudgetHistoryTests(TestCase):
+    """save() schreibt bei Anlage und bei jeder echten Budgetänderung einen
+    Historie-Eintrag — Grundlage für rückwirkend korrekte Übertragsberechnung."""
+
+    def setUp(self):
+        self.category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("100")
+        )
+
+    def test_creation_records_one_history_entry_matching_current_budget_period(self):
+        year, month = budget_period_for_date(date.today())
+        self.assertEqual(self.category.budget_history.count(), 1)
+        entry = self.category.budget_history.get()
+        self.assertEqual((entry.year, entry.month), (year, month))
+        self.assertEqual(entry.monthly_budget, Decimal("100"))
+
+    def test_changing_budget_within_same_period_updates_existing_entry(self):
+        self.category.monthly_budget = Decimal("150")
+        self.category.save()
+        self.assertEqual(self.category.budget_history.count(), 1)
+        self.assertEqual(self.category.budget_history.get().monthly_budget, Decimal("150"))
+
+    def test_unrelated_field_change_does_not_touch_history(self):
+        self.category.name = "Essen"
+        self.category.save()
+        self.assertEqual(self.category.budget_history.count(), 1)
+        self.assertEqual(self.category.budget_history.get().monthly_budget, Decimal("100"))
+
+
+class CategoryLegacyBudgetHistoryTests(TestCase):
+    """Kategorien, die schon vor diesem Feature existierten, haben noch keine
+    Historie — der erste Budgetwechsel danach muss sich selbst heilen, indem er
+    den alten Wert rückwirkend am Erstellungsmonat verankert."""
+
+    def setUp(self):
+        self.category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("100")
+        )
+        self.category.created_at = timezone.make_aware(timezone.datetime(2026, 7, 1))
+        self.category.save(update_fields=["created_at"])
+        self.category.budget_history.all().delete()
+
+    def test_first_budget_change_backfills_creation_month_with_old_value(self):
+        self.category.monthly_budget = Decimal("150")
+        self.category.save()
+        entries = list(self.category.budget_history.order_by("year", "month"))
+        self.assertEqual(len(entries), 2)
+        self.assertEqual((entries[0].year, entries[0].month), (2026, 7))
+        self.assertEqual(entries[0].monthly_budget, Decimal("100"))
+        self.assertEqual(entries[1].monthly_budget, Decimal("150"))
+
+
+class CategoryBudgetForMonthTests(TestCase):
+    """budget_for_month()/rollover_balance()/progress_percent() müssen rückwirkend
+    mit dem historisch gültigen statt dem aktuellen Budget rechnen."""
+
+    def setUp(self):
+        self.account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        self.category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("150")
+        )
+        self.category.created_at = timezone.make_aware(timezone.datetime(2026, 7, 1))
+        self.category.save(update_fields=["created_at"])
+        # Historie unabhängig vom tatsächlichen Testlaufdatum deterministisch nachbilden:
+        # 100 ab Juli, Wechsel auf 150 ab August.
+        self.category.budget_history.all().delete()
+        self.category._record_budget_history(Decimal("100"), ref_date=date(2026, 7, 1))
+        self.category._record_budget_history(Decimal("150"), ref_date=date(2026, 8, 1))
+
+    def test_budget_for_month_before_change_uses_old_value(self):
+        self.assertEqual(self.category.budget_for_month(2026, 7), Decimal("100"))
+
+    def test_budget_for_month_after_change_uses_new_value(self):
+        self.assertEqual(self.category.budget_for_month(2026, 8), Decimal("150"))
+        self.assertEqual(self.category.budget_for_month(2026, 9), Decimal("150"))
+
+    def test_rollover_balance_uses_historical_budget_per_month(self):
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 7, 15), amount=Decimal("-20")
+        )
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 8, 10), amount=Decimal("-30")
+        )
+        # Juli: 100 Budget - 20 = 80. Plus August: 150 Budget - 30 = 120 -> kumuliert 200.
+        self.assertEqual(self.category.rollover_balance(2026, 8), Decimal("200"))
+
+    def test_progress_percent_uses_historical_budget(self):
+        Transaction.objects.create(
+            account=self.account, category=self.category, date=date(2026, 7, 15), amount=Decimal("-50")
+        )
+        # Juli-Budget war 100 -> 50%, nicht 150 -> 33%.
+        self.assertEqual(self.category.progress_percent(2026, 7), 50)
+
+
+class CategoryHistoryAndTargetApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_budget_history_and_target_progress_exposed_via_api(self):
+        response = self.client.post(
+            "/api/categories/",
+            {
+                "name": "Ferien", "kind": "savings", "monthly_budget": "200",
+                "target_amount": "1000", "target_date": "2026-12-31",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(len(data["budget_history"]), 1)
+        self.assertEqual(data["budget_history"][0]["monthly_budget"], "200.00")
+        self.assertEqual(data["target_amount"], "1000.00")
+        self.assertEqual(data["target_date"], "2026-12-31")
+        self.assertEqual(data["target_progress_percent"], 20)
+
+    def test_target_progress_percent_none_without_target(self):
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Diverses", "kind": "variable", "monthly_budget": "50"},
+            content_type="application/json",
+        )
+        self.assertIsNone(response.json()["target_progress_percent"])
+
+
+class TransferApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.checking = Account.objects.create(name="Girokonto", starting_balance=Decimal("1000"))
+        self.savings = Account.objects.create(name="Sparkonto", starting_balance=Decimal("0"))
+
+    def test_transfer_creates_two_linked_transactions(self):
+        response = self.client.post(
+            "/api/transfers/",
+            {"from_account": self.checking.id, "to_account": self.savings.id, "amount": "200", "date": "2026-09-05"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Transaction.objects.count(), 2)
+        out_txn = Transaction.objects.get(account=self.checking)
+        in_txn = Transaction.objects.get(account=self.savings)
+        self.assertEqual(out_txn.amount, Decimal("-200"))
+        self.assertEqual(in_txn.amount, Decimal("200"))
+        self.assertEqual(out_txn.transfer_pair_id, in_txn.id)
+        self.assertEqual(in_txn.transfer_pair_id, out_txn.id)
+        self.assertTrue(out_txn.is_transfer)
+        self.assertIsNone(out_txn.category_id)
+        self.checking.refresh_from_db()
+        self.savings.refresh_from_db()
+        self.assertEqual(self.checking.balance, Decimal("800"))
+        self.assertEqual(self.savings.balance, Decimal("200"))
+
+    def test_transfer_rejects_same_account(self):
+        response = self.client.post(
+            "/api/transfers/",
+            {"from_account": self.checking.id, "to_account": self.checking.id, "amount": "50", "date": "2026-09-05"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_deleting_one_leg_deletes_both(self):
+        response = self.client.post(
+            "/api/transfers/",
+            {"from_account": self.checking.id, "to_account": self.savings.id, "amount": "200", "date": "2026-09-05"},
+            content_type="application/json",
+        )
+        out_id = response.json()["out"]["id"]
+        response = self.client.delete(f"/api/transactions/{out_id}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(Transaction.objects.count(), 0)
+
+    def test_transfer_excluded_from_dashboard_income_and_expense_totals(self):
+        self.client.post(
+            "/api/transfers/",
+            {"from_account": self.checking.id, "to_account": self.savings.id, "amount": "200", "date": "2026-09-05"},
+            content_type="application/json",
+        )
+        response = self.client.get("/api/dashboard/", {"year": 2026, "month": 9})
+        data = response.json()
+        self.assertEqual(data["income_total"], "0")
+        self.assertEqual(data["expense_total"], "0")
+
+
+class RecurringFrequencyTests(TestCase):
+    def setUp(self):
+        self.account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+
+    def test_monthly_import_ref_format_unchanged_for_backward_compatibility(self):
+        rt = RecurringTransaction.objects.create(
+            account=self.account, description="Miete", amount=Decimal("-1000"), day_of_month=3
+        )
+        created = generate_due_recurring(today=date(2026, 9, 5))
+        self.assertEqual(created[0].import_ref, f"recurring-{rt.id}-2026-09")
+
+    def test_weekly_recurring_generates_on_matching_weekday_only(self):
+        RecurringTransaction.objects.create(
+            account=self.account, description="Fitness", amount=Decimal("-20"),
+            frequency=RecurringTransaction.Frequency.WEEKLY, weekday=0,
+        )
+        # 2026-09-07 ist ein Montag.
+        self.assertEqual(len(generate_due_recurring(today=date(2026, 9, 7))), 1)
+        self.assertEqual(generate_due_recurring(today=date(2026, 9, 7)), [])  # kein Duplikat in derselben Woche
+        self.assertEqual(generate_due_recurring(today=date(2026, 9, 8)), [])  # Dienstag -> nicht fällig
+        self.assertEqual(len(generate_due_recurring(today=date(2026, 9, 14))), 1)  # Folgewoche wieder fällig
+
+    def test_biweekly_recurring_generates_every_other_matching_weekday(self):
+        RecurringTransaction.objects.create(
+            account=self.account, description="Reinigung", amount=Decimal("-50"),
+            frequency=RecurringTransaction.Frequency.BIWEEKLY, weekday=0, start_date=date(2026, 9, 7),
+        )
+        self.assertEqual(len(generate_due_recurring(today=date(2026, 9, 7))), 1)  # Woche 0 (Anker) -> fällig
+        self.assertEqual(generate_due_recurring(today=date(2026, 9, 14)), [])  # Woche 1 -> aus
+        self.assertEqual(len(generate_due_recurring(today=date(2026, 9, 21))), 1)  # Woche 2 -> wieder fällig
+
+    def test_yearly_recurring_generates_only_in_target_month_and_repeats_next_year(self):
+        RecurringTransaction.objects.create(
+            account=self.account, description="Versicherung", amount=Decimal("-300"),
+            frequency=RecurringTransaction.Frequency.YEARLY, month_of_year=3, day_of_month=15,
+        )
+        self.assertEqual(generate_due_recurring(today=date(2026, 2, 20)), [])
+        created = generate_due_recurring(today=date(2026, 3, 20))
+        self.assertEqual(len(created), 1)
+        self.assertEqual(created[0].date, date(2026, 3, 15))
+        created_next_year = generate_due_recurring(today=date(2027, 3, 20))
+        self.assertEqual(len(created_next_year), 1)
+
+
+class TransactionFilterTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.account = Account.objects.create(name="Girokonto")
+        Transaction.objects.create(
+            account=self.account, date=date(2026, 7, 5), amount=Decimal("-20"),
+            description="Migros Einkauf", counterparty="Migros AG",
+        )
+        Transaction.objects.create(
+            account=self.account, date=date(2026, 9, 5), amount=Decimal("-30"),
+            description="Coop Einkauf", counterparty="Coop",
+        )
+
+    def test_search_matches_description_or_counterparty_case_insensitively(self):
+        response = self.client.get("/api/transactions/", {"search": "migros"})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["description"], "Migros Einkauf")
+
+    def test_date_range_overrides_month_filter_and_spans_multiple_months(self):
+        response = self.client.get(
+            "/api/transactions/", {"year": 2026, "month": 9, "date_from": "2026-07-01", "date_to": "2026-07-31"}
+        )
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["description"], "Migros Einkauf")
+
+    def test_date_from_only_is_open_ended(self):
+        response = self.client.get("/api/transactions/", {"date_from": "2026-08-01"})
+        data = response.json()
+        self.assertEqual(len(data), 1)
+        self.assertEqual(data[0]["description"], "Coop Einkauf")

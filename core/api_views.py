@@ -3,7 +3,8 @@ from decimal import Decimal
 
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.db.models import Sum
+from django.db import transaction as db_transaction
+from django.db.models import Q, Sum
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
@@ -23,6 +24,7 @@ from .serializers import (
     RecurringTransactionSerializer,
     SignupSerializer,
     TransactionSerializer,
+    TransferSerializer,
     UserSerializer,
 )
 from .services import generate_due_recurring
@@ -156,14 +158,66 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Transaction.objects.select_related("account", "category").all()
         params = self.request.query_params
-        if params.get("year") and params.get("month"):
+        date_from = params.get("date_from")
+        date_to = params.get("date_to")
+        if date_from or date_to:
+            # Expliziter Datumsbereich ersetzt den Monatsfilter — so kann über den
+            # aktuell gewählten Budget-Monat hinaus gesucht werden.
+            if date_from:
+                qs = qs.filter(date__gte=date_from)
+            if date_to:
+                qs = qs.filter(date__lte=date_to)
+        elif params.get("year") and params.get("month"):
             start, end = budget_period_bounds(int(params["year"]), int(params["month"]))
             qs = qs.filter(date__gte=start, date__lte=end)
         if params.get("category"):
             qs = qs.filter(category_id=params["category"])
         if params.get("account"):
             qs = qs.filter(account_id=params["account"])
+        if params.get("search"):
+            search = params["search"]
+            qs = qs.filter(Q(description__icontains=search) | Q(counterparty__icontains=search))
         return qs
+
+
+class TransferView(APIView):
+    """Erstellt einen Konto-zu-Konto-Transfer als zwei verknüpfte, umschlaglose
+    Buchungen — spart Geld verschieben, ohne es fälschlich als Einnahme/Ausgabe in
+    Umschlägen oder im Dashboard-Total zu zählen (siehe DashboardView)."""
+
+    def post(self, request):
+        serializer = TransferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        from_account = data["from_account"]
+        to_account = data["to_account"]
+        note = data["note"]
+
+        with db_transaction.atomic():
+            out_txn = Transaction.objects.create(
+                account=from_account,
+                date=data["date"],
+                amount=-data["amount"],
+                description=note or f"Transfer zu {to_account.name}",
+                counterparty=to_account.name,
+            )
+            in_txn = Transaction.objects.create(
+                account=to_account,
+                date=data["date"],
+                amount=data["amount"],
+                description=note or f"Transfer von {from_account.name}",
+                counterparty=from_account.name,
+            )
+            out_txn.transfer_pair = in_txn
+            in_txn.transfer_pair = out_txn
+            out_txn.save(update_fields=["transfer_pair"])
+            in_txn.save(update_fields=["transfer_pair"])
+
+        ctx = {"request": request}
+        return Response(
+            {"out": TransactionSerializer(out_txn, context=ctx).data, "in": TransactionSerializer(in_txn, context=ctx).data},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class RecurringTransactionViewSet(viewsets.ModelViewSet):
@@ -204,13 +258,15 @@ class DashboardView(APIView):
                 "categories": CategorySerializer(cats, many=True, context=ctx).data,
             }
 
+        # Transfers zwischen eigenen Konten ausgeschlossen — sonst würden sie das
+        # Einnahmen-/Ausgaben-Total verzerren, obwohl kein Geld den Haushalt verlässt.
         income_total = Transaction.objects.filter(
-            date__gte=first, date__lte=last, amount__gt=0
+            date__gte=first, date__lte=last, amount__gt=0, transfer_pair__isnull=True
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
         expense_total = -(
-            Transaction.objects.filter(date__gte=first, date__lte=last, amount__lt=0).aggregate(
-                total=Sum("amount")
-            )["total"]
+            Transaction.objects.filter(
+                date__gte=first, date__lte=last, amount__lt=0, transfer_pair__isnull=True
+            ).aggregate(total=Sum("amount"))["total"]
             or Decimal("0")
         )
 

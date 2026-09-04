@@ -19,6 +19,12 @@ export interface Account {
 
 export type CategoryKind = 'fixed' | 'variable' | 'income' | 'debt' | 'savings'
 
+export interface CategoryBudgetHistoryEntry {
+  year: number
+  month: number
+  monthly_budget: string
+}
+
 export interface Category {
   id: number
   name: string
@@ -27,6 +33,10 @@ export interface Category {
   keywords: string
   color: string
   icon: string
+  target_amount: string | null
+  target_date: string | null
+  target_progress_percent: number | null
+  budget_history: CategoryBudgetHistoryEntry[]
   is_archived: boolean
   created_at: string
   spent: string
@@ -49,8 +59,12 @@ export interface Transaction {
   counterparty: string
   import_ref: string | null
   is_expense: boolean
+  is_transfer: boolean
+  transfer_pair: number | null
   created_at: string
 }
+
+export type RecurringFrequency = 'weekly' | 'biweekly' | 'monthly' | 'yearly'
 
 export interface RecurringTransaction {
   id: number
@@ -62,7 +76,11 @@ export interface RecurringTransaction {
   description: string
   counterparty: string
   amount: string
+  frequency: RecurringFrequency
   day_of_month: number
+  month_of_year: number
+  weekday: number
+  start_date: string
   is_active: boolean
   created_at: string
 }

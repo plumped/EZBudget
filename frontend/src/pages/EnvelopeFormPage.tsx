@@ -22,6 +22,8 @@ interface FormState {
   monthly_budget: string
   keywords: string
   color: string
+  target_amount: string
+  target_date: string
   is_archived: boolean
 }
 
@@ -31,6 +33,8 @@ const EMPTY: FormState = {
   monthly_budget: '0',
   keywords: '',
   color: '#0f172a',
+  target_amount: '',
+  target_date: '',
   is_archived: false,
 }
 
@@ -55,6 +59,8 @@ export function EnvelopeFormPage() {
         monthly_budget: c.monthly_budget,
         keywords: c.keywords,
         color: c.color,
+        target_amount: c.target_amount ?? '',
+        target_date: c.target_date ?? '',
         is_archived: c.is_archived,
       })
       setLoading(false)
@@ -66,11 +72,16 @@ export function EnvelopeFormPage() {
     setErrors({ fields: {} })
     setSubmitting(true)
     try {
+      const payload = {
+        ...form,
+        target_amount: form.target_amount.trim() || null,
+        target_date: form.target_date || null,
+      }
       if (isNew) {
-        await api.post('/categories/', form)
+        await api.post('/categories/', payload)
         push('success', `Umschlag „${form.name}“ angelegt.`)
       } else {
-        await api.put(`/categories/${id}/`, form)
+        await api.put(`/categories/${id}/`, payload)
         push('success', `Umschlag „${form.name}“ aktualisiert.`)
       }
       navigate('/envelopes')
@@ -150,6 +161,30 @@ export function EnvelopeFormPage() {
               Komma-getrennt, für den CAMT.053-Import.
             </p>
           </div>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="target_amount">Sparziel (optional)</label>
+              <input
+                id="target_amount"
+                value={form.target_amount}
+                onChange={(e) => setForm({ ...form, target_amount: e.target.value })}
+                placeholder="z.B. 5000"
+                aria-describedby="target-help"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="target_date">Zieldatum (optional)</label>
+              <input
+                id="target_date"
+                type="date"
+                value={form.target_date}
+                onChange={(e) => setForm({ ...form, target_date: e.target.value })}
+              />
+            </div>
+          </div>
+          <p className="helptext" id="target-help">
+            Zielbetrag, bis zu dem dieser Umschlag inkl. Übertrag angespart werden soll — z.B. für Sparziele.
+          </p>
           <div className="form-row align-end">
             <div className="field">
               <label htmlFor="color">Farbe</label>

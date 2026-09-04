@@ -1,10 +1,19 @@
+import { Desktop, Moon, Sun, type Icon } from '@phosphor-icons/react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { extractErrorMessage } from '../api/errors'
 import { useSettings } from '../context/SettingsContext'
+import { useTheme, type Theme } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: Icon }[] = [
+  { value: 'system', label: 'System', icon: Desktop },
+  { value: 'light', label: 'Hell', icon: Sun },
+  { value: 'dark', label: 'Dunkel', icon: Moon },
+]
 
 export function SettingsPage() {
   const { monthStartDay, loading, updateMonthStartDay } = useSettings()
+  const { theme, setTheme } = useTheme()
   const push = useToast()
   const [value, setValue] = useState(String(monthStartDay))
   const [submitting, setSubmitting] = useState(false)
@@ -65,6 +74,30 @@ export function SettingsPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="card card-form">
+        <div className="field">
+          <label id="theme-label">Darstellung</label>
+          <div className="toggle-group toggle-group-full" role="group" aria-labelledby="theme-label">
+            {THEME_OPTIONS.map((opt) => {
+              const IconComponent = opt.icon
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={theme === opt.value ? 'active' : ''}
+                  aria-pressed={theme === opt.value}
+                  onClick={() => setTheme(opt.value)}
+                >
+                  <IconComponent size={14} weight="bold" aria-hidden="true" />
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="helptext">„System" folgt automatisch der Geräteeinstellung, „Hell"/„Dunkel" überschreiben sie fest.</p>
+        </div>
       </div>
     </>
   )

@@ -3,8 +3,9 @@
 /*
   Design tokens — see design-system/ezbudget/MASTER.md for the full rationale
   (product/style/typography/icon research via the ui-ux-pro-max skill).
-  Light palette is the default; dark palette activates automatically via
-  prefers-color-scheme (no manual toggle — kept out of scope deliberately).
+  Light palette is the default; dark activates either automatically via
+  prefers-color-scheme, or forced by [data-theme] (see ThemeContext) which
+  always wins over the OS preference in either direction.
 */
 :root {
   --color-primary: #0f172a;
@@ -52,7 +53,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-primary: #3b82f6;
     --color-primary-hover: #60a5fa;
     --color-on-primary: #071120;
@@ -78,6 +79,35 @@
 
     color-scheme: dark;
   }
+}
+
+/* Manueller Theme-Override (ThemeContext) — gewinnt in beide Richtungen über
+   die OS-Einstellung, egal ob der Browser hell oder dunkel bevorzugt. */
+:root[data-theme='dark'] {
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-on-primary: #071120;
+  --color-secondary: #60a5fa;
+  --color-secondary-soft: #12213d;
+
+  --color-bg: #0b1220;
+  --color-fg: #f1f5f9;
+  --color-card: #131c2e;
+  --color-muted: #182338;
+  --color-muted-fg: #94a3b8;
+  --color-faint-fg: #64748b;
+  --color-border: rgba(255, 255, 255, 0.08);
+
+  --color-positive-soft: rgba(5, 150, 105, 0.16);
+  --color-destructive-soft: rgba(220, 38, 38, 0.16);
+  --color-warning-soft: rgba(180, 83, 9, 0.18);
+  --color-ring: #60a5fa;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
 }
 
 * {
@@ -875,6 +905,19 @@ input[type='checkbox'] {
 }
 .filter-select {
   width: auto;
+}
+.filter-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.search-input {
+  width: 220px;
+}
+.date-input {
+  width: 160px;
 }
 .color-preview {
   height: 42px;

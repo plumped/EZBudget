@@ -108,10 +108,10 @@ sample_data/          Beispiel- und Test-CAMT.053-Dateien verschiedener Bank-Var
 
 frontend/             React 19 + TypeScript (Vite) — eigenes CSS-Design-System, kein Tailwind
   src/api/              Axios-Client (client.ts), TypeScript-Typen (types.ts), Fehler-Helper
-  src/context/          AuthContext (Login/Signup/Logout), ToastContext (Meldungen)
+  src/context/          AuthContext (Login/Signup/Logout), SettingsContext, ThemeContext (Dark-Mode), ToastContext
   src/components/       Layout/Sidebar, geteilte UI-Bausteine (Badges, Progress-Bar, Chart, ...)
   src/pages/            Eine Seite pro Route (Dashboard, Umschläge, Buchungen, Konten,
-                         Daueraufträge, Schulden, Import)
+                         Daueraufträge, Schulden, Import, Transfer, ...)
 ```
 
 ## 5. Umgesetzte Themen
@@ -225,12 +225,66 @@ Finance-App nicht passt; gezielte Nachfragen lieferten die tatsächlich verwende
   Fokus-Management bei fehlgeschlagenem Submit, Toasts mit `role="status"`/`"alert"`,
   Text-Caption am Tilgungsverlauf-Chart (Trend nicht nur über Farbe erkennbar).
 
+### 5.10 Historische Budgethöhen
+
+`CategoryBudgetHistory` (`core/models.py`) speichert bei jeder echten Änderung von
+`Category.monthly_budget` einen Snapshot ab dem jeweils gültigen Budget-Monat —
+`Category.save()` schreibt den Eintrag automatisch, inklusive rückwirkender
+Selbstheilung für Umschläge, die schon vor diesem Feature bestanden (ihr bisheriger
+Wert wird beim ersten Wechsel danach am Erstellungsmonat verankert). `budget_for_month()`,
+`rollover_balance()` und `progress_percent()` rechnen dadurch für vergangene Monate mit
+dem damals gültigen statt dem aktuellen Budget. Der Verlauf ist über `budget_history` im
+Umschlag-API sichtbar und wird auf der Umschlag-Detailseite als Tabelle angezeigt, sobald
+sich das Budget mindestens einmal geändert hat.
+
+### 5.11 Konto-zu-Konto-Transfer
+
+`POST /api/transfers/` (`TransferView`) legt zwei verknüpfte, umschlaglose Buchungen an
+(`Transaction.transfer_pair`, ein selbstreferenzierendes `OneToOneField` mit
+`on_delete=CASCADE`) — Geld zwischen eigenen Konten verschieben, ohne es als Einnahme/Ausgabe
+in Umschlägen oder im Dashboard-Total zu zählen (dort per `transfer_pair__isnull=True`
+ausgeschlossen). Löschen einer Seite löscht automatisch beide. Eigene Seite unter
+`/transactions/transfer`, Transfers erscheinen in der Buchungsliste mit "Transfer"-Badge
+statt Umschlag.
+
+### 5.12 Sparziel bei Umschlägen
+
+Optionale Felder `target_amount`/`target_date` auf `Category` — der Fortschritt
+(`target_progress_percent`) wird aus `rollover_balance()` (verfügbar inkl. Übertrag) gegen
+das Ziel berechnet und auf der Umschlag-Detailseite als eigene Fortschrittsanzeige samt
+Zieldatum dargestellt.
+
+### 5.13 Wiederkehrende Buchungen: mehr Frequenzen
+
+`RecurringTransaction.frequency` (wöchentlich / alle 2 Wochen / monatlich / jährlich) statt
+nur "Tag im Monat" — je nach Frequenz greifen `weekday` (wöchentlich/2-wöchentlich),
+`month_of_year` (jährlich) oder weiterhin `day_of_month`; `start_date` dient als Anker für den
+2-Wochen-Rhythmus. `generate_due_recurring()` bestimmt Fälligkeit und Perioden-Schlüssel pro
+Frequenz (`RecurringTransaction.is_due_on()`/`period_key()`); das monatliche Format ist
+bewusst identisch zum bisherigen `import_ref` geblieben, damit bestehende Daten kompatibel
+bleiben.
+
+### 5.14 Buchungen-Suche/-Filter erweitern
+
+Die Buchungen-API filtert zusätzlich per `search` (Freitext auf Beschreibung/Gegenpartei,
+case-insensitive) sowie `date_from`/`date_to` — ein gesetzter Datumsbereich ersetzt dabei den
+Monatsfilter, sodass über den aktuell gewählten Budget-Monat hinaus gesucht werden kann. Im
+Frontend eine Filterleiste mit debounced Suchfeld und zwei Datumsfeldern oberhalb der
+Buchungsliste.
+
+### 5.15 Manueller Dark-Mode-Toggle
+
+`ThemeContext` (`frontend/src/context/ThemeContext.tsx`) verwaltet System/Hell/Dunkel in
+`localStorage` und setzt ein `data-theme`-Attribut auf `<html>`. `index.css` definiert die
+Dark-Palette entsprechend doppelt: einmal unter `prefers-color-scheme: dark` (nur wenn kein
+`data-theme="light"` gesetzt ist) und einmal unter `[data-theme="dark"]`, damit die manuelle
+Wahl in beide Richtungen über die Systemeinstellung gewinnt. Umschaltbar unter
+**Einstellungen → Darstellung**.
+
 ## 6. Nächste Schritte
 
-1. **Historische Budgethöhen** für einen rückwirkend exakten Umschlag-Übertrag, statt mit
-   dem aktuellen Monatsbudget zu rechnen.
-2. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach
+1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach
    `npm run build`) über Django/WhiteNoise oder einen Reverse-Proxy vor die API schaltet,
    inkl. `DEBUG=False`, echtem `SECRET_KEY` und Postgres statt SQLite.
-3. **Frontend-Tests**: bisher nur manuell/End-to-End verifiziert — Komponenten- bzw.
+2. **Frontend-Tests**: bisher nur manuell/End-to-End verifiziert — Komponenten- bzw.
    Integrationstests (z.B. Vitest + Testing Library) wären ein sinnvoller nächster Schritt.

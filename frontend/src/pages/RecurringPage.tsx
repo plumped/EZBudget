@@ -7,7 +7,26 @@ import type { RecurringTransaction } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
-import { formatMoney } from '../utils/format'
+import { formatDate, formatMoney } from '../utils/format'
+
+const WEEKDAY_NAMES = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+const MONTH_NAMES = [
+  'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
+  'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember',
+]
+
+function describeFrequency(rt: RecurringTransaction): string {
+  switch (rt.frequency) {
+    case 'weekly':
+      return `Wöchentlich, ${WEEKDAY_NAMES[rt.weekday]}`
+    case 'biweekly':
+      return `Alle 2 Wochen, ${WEEKDAY_NAMES[rt.weekday]} (ab ${formatDate(rt.start_date)})`
+    case 'yearly':
+      return `Jährlich, ${rt.day_of_month}. ${MONTH_NAMES[rt.month_of_year - 1]}`
+    default:
+      return `Monatlich, Tag ${rt.day_of_month}`
+  }
+}
 
 export function RecurringPage() {
   const [recurring, setRecurring] = useState<RecurringTransaction[]>([])
@@ -51,7 +70,7 @@ export function RecurringPage() {
       <div className="page-header">
         <div>
           <h1>Wiederkehrende Buchungen</h1>
-          <p>Fixkosten, Abos und Lohn, die automatisch jeden Monat gebucht werden.</p>
+          <p>Fixkosten, Abos und Lohn, die automatisch in der gewählten Frequenz gebucht werden.</p>
         </div>
         <div className="page-header-actions">
           <button type="button" className="btn secondary" onClick={() => void handleGenerate()}>
@@ -79,7 +98,7 @@ export function RecurringPage() {
               <div className="row-main">
                 <span className="row-title">{rt.description}</span>
                 <div className="row-sub">
-                  Tag {rt.day_of_month} · {rt.account_name}
+                  {describeFrequency(rt)} · {rt.account_name}
                   {rt.category_name ? ` · ${rt.category_name}` : ''}
                   {!rt.is_active && <span className="badge">pausiert</span>}
                   <Link to={`/recurring/${rt.id}/edit`} className="link-action">

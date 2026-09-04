@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
@@ -71,11 +72,14 @@ class CategorySerializer(serializers.ModelSerializer):
     available = serializers.SerializerMethodField()
     rollover = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
+    target_progress_percent = serializers.SerializerMethodField()
+    budget_history = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = [
             "id", "name", "kind", "monthly_budget", "keywords", "color", "icon",
+            "target_amount", "target_date", "target_progress_percent", "budget_history",
             "is_archived", "created_at", "spent", "available", "rollover", "progress",
         ]
         read_only_fields = ["id", "created_at"]
@@ -96,6 +100,19 @@ class CategorySerializer(serializers.ModelSerializer):
         year, month = _year_month_from_context(self.context)
         return obj.progress_percent(year, month)
 
+    def get_target_progress_percent(self, obj):
+        if not obj.target_amount or obj.target_amount <= 0:
+            return None
+        year, month = _year_month_from_context(self.context)
+        pct = (obj.rollover_balance(year, month) / obj.target_amount) * 100
+        return int(max(0, min(pct, 100)))
+
+    def get_budget_history(self, obj):
+        return [
+            {"year": h.year, "month": h.month, "monthly_budget": str(h.monthly_budget)}
+            for h in obj.budget_history.order_by("-year", "-month")
+        ]
+
 
 class TransactionSerializer(serializers.ModelSerializer):
     account_name = serializers.CharField(source="account.name", read_only=True)
@@ -103,15 +120,33 @@ class TransactionSerializer(serializers.ModelSerializer):
     category_color = serializers.CharField(source="category.color", read_only=True, default=None)
     category_icon = serializers.CharField(source="category.icon", read_only=True, default=None)
     is_expense = serializers.BooleanField(read_only=True)
+    is_transfer = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Transaction
         fields = [
             "id", "account", "account_name", "category", "category_name", "category_color",
             "category_icon", "date", "amount", "description", "counterparty", "import_ref",
-            "is_expense", "created_at",
+            "is_expense", "is_transfer", "transfer_pair", "created_at",
         ]
-        read_only_fields = ["id", "import_ref", "created_at"]
+        read_only_fields = ["id", "import_ref", "transfer_pair", "created_at"]
+
+
+class TransferSerializer(serializers.Serializer):
+    """Erstellt einen Konto-zu-Konto-Transfer als zwei verknüpfte Buchungen ohne
+    Umschlag — siehe TransferView. Kein ModelSerializer, da kein eigenes Modell,
+    sondern eine Aktion (analog zu RuleApplySerializer in imports_camt)."""
+
+    from_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    to_account = serializers.PrimaryKeyRelatedField(queryset=Account.objects.all())
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal("0.01"))
+    date = serializers.DateField()
+    note = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate(self, attrs):
+        if attrs["from_account"] == attrs["to_account"]:
+            raise serializers.ValidationError("Quell- und Zielkonto müssen unterschiedlich sein.")
+        return attrs
 
 
 class RecurringTransactionSerializer(serializers.ModelSerializer):
@@ -123,6 +158,7 @@ class RecurringTransactionSerializer(serializers.ModelSerializer):
         model = RecurringTransaction
         fields = [
             "id", "account", "account_name", "category", "category_name", "category_color",
-            "description", "counterparty", "amount", "day_of_month", "is_active", "created_at",
+            "description", "counterparty", "amount", "frequency", "day_of_month", "month_of_year",
+            "weekday", "start_date", "is_active", "created_at",
         ]
         read_only_fields = ["id", "created_at"]

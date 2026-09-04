@@ -191,7 +191,7 @@ export function DashboardPage() {
                 <span className="row-title">{t.description || '(keine Beschreibung)'}</span>
                 <div className="row-sub">
                   {t.date} · {t.account_name}
-                  {t.category_name ? ` · ${t.category_name}` : ''}
+                  {t.is_transfer ? <span className="badge">Transfer</span> : t.category_name ? ` · ${t.category_name}` : ''}
                 </div>
               </div>
               <div className={`row-amount num ${t.is_expense ? 'negative' : 'positive'}`}>{formatMoney(t.amount)}</div>
