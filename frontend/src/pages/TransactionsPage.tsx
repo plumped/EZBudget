@@ -11,8 +11,6 @@ import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatMoney } from '../utils/format'
 
-type EditableField = 'account' | 'category' | 'amount'
-
 export function TransactionsPage() {
   const { year, month, label, prevYear, prevMonth, nextYear, nextMonth, setMonth } = useMonthParam()
   const [searchParams] = useSearchParams()
@@ -25,8 +23,8 @@ export function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<{ id: number; field: EditableField } | null>(null)
   const [savingId, setSavingId] = useState<number | null>(null)
+  const [editingAmountId, setEditingAmountId] = useState<number | null>(null)
   const [amountDraft, setAmountDraft] = useState('')
   const push = useToast()
 
@@ -69,44 +67,43 @@ export function TransactionsPage() {
     setDateTo('')
   }
 
-  async function saveField(t: Transaction, field: EditableField, value: string) {
-    let patch: Record<string, string | number | null>
-    if (field === 'account') {
-      if (Number(value) === t.account) {
-        setEditing(null)
-        return
-      }
-      patch = { account: Number(value) }
-    } else if (field === 'category') {
-      const nextCategory = value ? Number(value) : null
-      if (nextCategory === t.category) {
-        setEditing(null)
-        return
-      }
-      patch = { category: nextCategory }
-    } else {
-      const trimmed = value.trim().replace(/'/g, '').replace(',', '.')
-      const explicitSign = trimmed.startsWith('+') || trimmed.startsWith('-')
-      const parsed = Math.abs(parseFloat(trimmed) || 0)
-      const wasNegative = parseFloat(t.amount) < 0
-      const signed = explicitSign ? parseFloat(trimmed) : wasNegative ? -parsed : parsed
-      if (signed.toFixed(2) === parseFloat(t.amount).toFixed(2)) {
-        setEditing(null)
-        return
-      }
-      patch = { amount: signed.toFixed(2) }
-    }
-
+  async function savePatch(t: Transaction, patch: Record<string, string | number | null>) {
     setSavingId(t.id)
     try {
       const res = await api.patch<Transaction>(`/transactions/${t.id}/`, patch)
       setTransactions((prev) => prev.map((row) => (row.id === t.id ? res.data : row)))
-      setEditing(null)
     } catch (err) {
       push('error', extractErrorMessage(err))
     } finally {
       setSavingId(null)
     }
+  }
+
+  function handleAccountChange(t: Transaction, value: string) {
+    if (Number(value) === t.account) return
+    void savePatch(t, { account: Number(value) })
+  }
+
+  function handleCategoryChange(t: Transaction, value: string) {
+    const nextCategory = value ? Number(value) : null
+    if (nextCategory === t.category) return
+    void savePatch(t, { category: nextCategory })
+  }
+
+  function startAmountEdit(t: Transaction) {
+    setAmountDraft(Math.abs(parseFloat(t.amount)).toFixed(2))
+    setEditingAmountId(t.id)
+  }
+
+  function commitAmountEdit(t: Transaction) {
+    setEditingAmountId(null)
+    const trimmed = amountDraft.trim().replace(/'/g, '').replace(',', '.')
+    const explicitSign = trimmed.startsWith('+') || trimmed.startsWith('-')
+    const parsed = Math.abs(parseFloat(trimmed) || 0)
+    const wasNegative = parseFloat(t.amount) < 0
+    const signed = explicitSign ? parseFloat(trimmed) : wasNegative ? -parsed : parsed
+    if (signed.toFixed(2) === parseFloat(t.amount).toFixed(2)) return
+    void savePatch(t, { amount: signed.toFixed(2) })
   }
 
   async function handleDelete(t: Transaction) {
@@ -210,45 +207,30 @@ export function TransactionsPage() {
                     {t.counterparty || '—'}
                   </td>
                   <td>
-                    {editing?.id === t.id && editing.field === 'account' ? (
-                      <select
-                        autoFocus
-                        className="cell-edit-select"
-                        defaultValue={t.account}
-                        disabled={savingId === t.id}
-                        onChange={(e) => void saveField(t, 'account', e.target.value)}
-                        onBlur={() => setEditing(null)}
-                        onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
-                      >
-                        {accounts.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <button
-                        type="button"
-                        className="cell-edit-trigger"
-                        onClick={() => setEditing({ id: t.id, field: 'account' })}
-                        aria-label={`Konto ändern (aktuell ${t.account_name})`}
-                      >
-                        {t.account_name}
-                      </button>
-                    )}
+                    <select
+                      className="cell-edit-select"
+                      value={t.account}
+                      disabled={savingId === t.id}
+                      aria-label={`Konto (aktuell ${t.account_name})`}
+                      onChange={(e) => handleAccountChange(t, e.target.value)}
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td>
                     {t.is_transfer ? (
                       <span className="badge">Transfer</span>
-                    ) : editing?.id === t.id && editing.field === 'category' ? (
+                    ) : (
                       <select
-                        autoFocus
                         className="cell-edit-select"
-                        defaultValue={t.category ?? ''}
+                        value={t.category ?? ''}
                         disabled={savingId === t.id}
-                        onChange={(e) => void saveField(t, 'category', e.target.value)}
-                        onBlur={() => setEditing(null)}
-                        onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
+                        aria-label={`Umschlag (aktuell ${t.category_name ?? 'ohne Umschlag'})`}
+                        onChange={(e) => handleCategoryChange(t, e.target.value)}
                       >
                         <option value="">— ohne —</option>
                         {categories.map((c) => (
@@ -257,45 +239,28 @@ export function TransactionsPage() {
                           </option>
                         ))}
                       </select>
-                    ) : (
-                      <button
-                        type="button"
-                        className="cell-edit-trigger"
-                        onClick={() => setEditing({ id: t.id, field: 'category' })}
-                        aria-label={`Umschlag ändern (aktuell ${t.category_name ?? 'ohne Umschlag'})`}
-                      >
-                        {t.category_name ?? '—'}
-                      </button>
                     )}
                   </td>
                   <td className={`amount-cell ${t.is_expense ? 'negative' : 'positive'}`}>
-                    {editing?.id === t.id && editing.field === 'amount' ? (
-                      <input
-                        autoFocus
-                        className="cell-edit-input"
-                        value={amountDraft}
-                        disabled={savingId === t.id}
-                        onChange={(e) => setAmountDraft(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        onBlur={() => void saveField(t, 'amount', amountDraft)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') e.currentTarget.blur()
-                          if (e.key === 'Escape') setEditing(null)
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="cell-edit-trigger"
-                        onClick={() => {
+                    <input
+                      className="cell-edit-input"
+                      value={editingAmountId === t.id ? amountDraft : formatMoney(t.amount)}
+                      disabled={savingId === t.id}
+                      aria-label={`Betrag (aktuell ${formatMoney(t.amount)})`}
+                      onFocus={(e) => {
+                        startAmountEdit(t)
+                        requestAnimationFrame(() => e.target.select())
+                      }}
+                      onChange={(e) => setAmountDraft(e.target.value)}
+                      onBlur={() => commitAmountEdit(t)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') {
                           setAmountDraft(Math.abs(parseFloat(t.amount)).toFixed(2))
-                          setEditing({ id: t.id, field: 'amount' })
-                        }}
-                        aria-label={`Betrag ändern (aktuell ${formatMoney(t.amount)})`}
-                      >
-                        {formatMoney(t.amount)}
-                      </button>
-                    )}
+                          e.currentTarget.blur()
+                        }
+                      }}
+                    />
                   </td>
                   <td className="nowrap">
                     <Link to={`/transactions/${t.id}/edit`} className="link-action">

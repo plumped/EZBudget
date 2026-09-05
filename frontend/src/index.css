@@ -935,9 +935,15 @@ table.data td.table-empty-cell {
 .amount-cell.negative {
   color: var(--color-destructive);
 }
-.cell-edit-trigger {
-  display: inline-flex;
-  align-items: center;
+/* Immer aktive Selects/Inputs (kein Button-Zwischenschritt) — sehen im Ruhezustand
+   wie normaler Zelltext aus und bekommen erst bei Hover/Fokus einen sichtbaren
+   Rahmen. Padding/Border-Breite bleiben in jedem Zustand identisch, damit sich
+   die Zeilenhöhe beim Editieren nicht verschiebt. Die input-Variante muss die
+   generische `input:not(...)`-Regel oben überstimmen, daher der gleiche
+   :not()-Zuschnitt hier — sonst gewinnt die generische Regel per Spezifität. */
+.cell-edit-select,
+input.cell-edit-input:not([type='checkbox']):not([type='radio']):not([type='color']) {
+  display: block;
   width: 100%;
   background: none;
   border: 1px solid transparent;
@@ -945,28 +951,35 @@ table.data td.table-empty-cell {
   padding: 5px 7px;
   margin: -5px -7px;
   font: inherit;
+  font-size: 0.87rem;
   color: inherit;
+}
+.cell-edit-select {
+  cursor: pointer;
+  min-width: 150px;
+}
+input.cell-edit-input:not([type='checkbox']):not([type='radio']):not([type='color']) {
+  cursor: text;
   text-align: inherit;
+  min-width: 90px;
 }
-.amount-cell .cell-edit-trigger {
-  justify-content: flex-end;
+.amount-cell input.cell-edit-input {
+  text-align: right;
 }
-.cell-edit-trigger:hover,
-.cell-edit-trigger:focus-visible {
-  background: var(--color-muted);
+.cell-edit-select:hover,
+input.cell-edit-input:hover {
   border-color: var(--color-border);
 }
-.cell-edit-select,
-.cell-edit-input {
-  width: 100%;
-  min-width: 120px;
-  font: inherit;
-  font-size: 0.87rem;
-  padding: 6px 8px;
+.cell-edit-select:focus-visible,
+input.cell-edit-input:focus {
+  outline: none;
+  border-color: var(--color-ring);
+  background: var(--color-card);
 }
-.amount-cell .cell-edit-input {
-  text-align: right;
-  min-width: 90px;
+.cell-edit-select:disabled,
+input.cell-edit-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .amount-cell.positive {
   color: var(--color-positive);
