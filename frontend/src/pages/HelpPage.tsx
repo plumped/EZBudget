@@ -537,14 +537,27 @@ export function HelpPage() {
         </p>
 
         <h3>Notfallfonds-Priorität</h3>
+        <div className="help-callout tip">
+          <strong className="label">Wichtig: Betrifft nur das Extra-Budget</strong>
+          <p>
+            Die Notfallfonds-Priorität greift ausschliesslich bei zusätzlichem Geld (Extra-Budget bzw.
+            Sweep-Überschuss). Die normalen <strong>Mindestraten aller Schulden laufen währenddessen ganz normal
+            weiter</strong>, komplett unbeeinflusst — es wird also nicht etwa die Schuldentilgung pausiert, bis der
+            Notfallfonds voll ist. Nur das, was über die Mindestraten hinausgeht, wird umgeleitet.
+          </p>
+        </div>
         <div className="help-callout example">
           <strong className="label">Beispiel</strong>
           <p>
             Du hast den Umschlag „Notgroschen" als Notfallfonds markiert, Sparziel CHF 3000, aktuell CHF 1200
-            gespart — Lücke also CHF 1800. Dein monatliches Extra-Budget beträgt CHF 200. Sowohl der
-            Tilgungsplan-Rechner als auch der Sweep-Vorschlag leiten diese CHF 200 zuerst in den Notgroschen, Monat
-            für Monat, bis die Lücke von CHF 1800 geschlossen ist (nach 9 Monaten) — erst danach fliesst
-            Extra-Budget an deine Schulden.
+            gespart — Lücke also CHF 1800. Du hast eine Schuld mit Mindestrate CHF 150/Monat und ein monatliches
+            Extra-Budget von CHF 200.
+          </p>
+          <p>
+            Jeden Monat passiert Folgendes gleichzeitig: Die CHF 150 Mindestrate gehen wie immer ganz normal an die
+            Schuld. Zusätzlich leiten der Tilgungsplan-Rechner und der Sweep-Vorschlag die CHF 200 Extra-Budget
+            zuerst in den Notgroschen, bis die Lücke von CHF 1800 nach 9 Monaten geschlossen ist. Erst ab Monat 10
+            fliesst auch das Extra-Budget zusätzlich zur Mindestrate an die Schuld.
           </p>
         </div>
         <p>
