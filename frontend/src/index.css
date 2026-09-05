@@ -1364,6 +1364,25 @@ input[type='checkbox'] {
   display: block;
   max-width: 100%;
 }
+.chart-line-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: chart-line-draw 1.1s var(--motion-ease) both;
+}
+@keyframes chart-line-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.chart-area-draw {
+  opacity: 0;
+  animation: chart-area-draw 1.1s var(--motion-ease) 150ms both;
+}
+@keyframes chart-area-draw {
+  to {
+    opacity: 1;
+  }
+}
 .chart-tooltip {
   font-size: 0.72rem;
   fill: var(--color-muted-fg);

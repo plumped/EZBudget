@@ -54,8 +54,16 @@ export function PayoffChart({ data }: Props) {
       <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label={caption}>
         <title>{caption}</title>
         <line x1={PADDING} y1={HEIGHT - PADDING} x2={width - PADDING} y2={HEIGHT - PADDING} stroke="var(--color-border)" />
-        <path d={areaPath} fill="var(--color-secondary-soft)" stroke="none" />
-        <path d={path} fill="none" stroke="var(--color-secondary)" strokeWidth={2.5} />
+        <path key={`area-${path}`} className="chart-area-draw" d={areaPath} fill="var(--color-secondary-soft)" stroke="none" />
+        <path
+          key={`line-${path}`}
+          className="chart-line-draw"
+          d={path}
+          pathLength={1}
+          fill="none"
+          stroke="var(--color-secondary)"
+          strokeWidth={2.5}
+        />
         {points.map((p, i) =>
           i % labelEvery === 0 ? (
             <text key={data[i].month} x={p.x} y={HEIGHT - PADDING + 18} textAnchor="middle" className="chart-tooltip">

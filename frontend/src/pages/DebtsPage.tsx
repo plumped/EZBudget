@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import type { Debt, PayoffResult, PayoffStrategy, SweepProposal } from '../api/types'
+import { CountUp } from '../components/CountUp'
 import { EmptyState } from '../components/EmptyState'
 import { InfoTooltip } from '../components/InfoTooltip'
 import { PayoffChart } from '../components/PayoffChart'
@@ -86,11 +87,15 @@ export function DebtsPage() {
             <div className="stat-grid">
               <div>
                 <div className="hero-label">Restschuld gesamt</div>
-                <div className="stat-value negative num">{formatMoney(result?.total_balance ?? '0')}</div>
+                <div className="stat-value negative num">
+                  <CountUp value={parseFloat(result?.total_balance ?? '0')} format={formatMoney} />
+                </div>
               </div>
               <div>
                 <div className="hero-label">Mindestraten / Monat</div>
-                <div className="stat-value num">{formatMoney(result?.total_minimum ?? '0')}</div>
+                <div className="stat-value num">
+                  <CountUp value={parseFloat(result?.total_minimum ?? '0')} format={formatMoney} />
+                </div>
               </div>
               <div>
                 <div className="hero-label">Schuldenfrei am</div>
@@ -98,7 +103,9 @@ export function DebtsPage() {
               </div>
               <div>
                 <div className="hero-label">Zinskosten gesamt</div>
-                <div className="stat-value negative num">{formatMoney(result?.total_interest ?? '0')}</div>
+                <div className="stat-value negative num">
+                  <CountUp value={parseFloat(result?.total_interest ?? '0')} format={formatMoney} />
+                </div>
               </div>
             </div>
 

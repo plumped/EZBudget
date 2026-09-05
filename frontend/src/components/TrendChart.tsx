@@ -62,9 +62,21 @@ export function TrendChart({ labels, series, caption, formatValue }: Props) {
       <svg width={width} height={HEIGHT} viewBox={`0 0 ${width} ${HEIGHT}`} role="img" aria-label={caption}>
         <title>{caption}</title>
         <line x1={PADDING} y1={zeroY} x2={width - PADDING} y2={zeroY} stroke="var(--color-border)" />
-        {series.map((s) => (
-          <path key={s.label} d={pathFor(s.values)} fill="none" stroke={s.color} strokeWidth={2.5} />
-        ))}
+        {series.map((s, i) => {
+          const d = pathFor(s.values)
+          return (
+            <path
+              key={`${s.label}-${d}`}
+              className="chart-line-draw"
+              style={{ animationDelay: `${i * 90}ms` }}
+              d={d}
+              pathLength={1}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={2.5}
+            />
+          )
+        })}
         {labels.map((text, i) =>
           i % labelEvery === 0 ? (
             <text key={text} x={PADDING + i * stepX} y={HEIGHT - PADDING + 18} textAnchor="middle" className="chart-tooltip">

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
 import type { DashboardData } from '../api/types'
+import { CountUp } from '../components/CountUp'
 import { KindIcon } from '../components/KindIcon'
 import { MonthSwitcher } from '../components/MonthSwitcher'
 import { ProgressBar } from '../components/ProgressBar'
@@ -11,6 +12,7 @@ import { Skeleton, SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
 import { formatDate, formatMoney, moneyClass } from '../utils/format'
+import { triggerConfetti } from '../utils/confetti'
 
 export function DashboardPage() {
   const { year, month, label, prevYear, prevMonth, nextYear, nextMonth, setMonth } = useMonthParam()
@@ -28,6 +30,9 @@ export function DashboardPage() {
         setData(res.data)
         for (const txn of res.data.generated_recurring) {
           push('info', `Wiederkehrende Buchung generiert: ${txn.description} (${formatMoney(txn.amount)}).`)
+        }
+        if (res.data.new_milestones.length > 0) {
+          triggerConfetti()
         }
         for (const milestone of res.data.new_milestones) {
           push('success', `Meilenstein erreicht: ${milestone.milestone}% von „${milestone.debt_name}" getilgt!`)
@@ -81,24 +86,34 @@ export function DashboardPage() {
 
       <div className="card">
         <div className="hero-label">Gesamtguthaben, alle Konten</div>
-        <div className="hero-figure num">CHF {formatMoney(data.total_balance)}</div>
+        <div className="hero-figure num">
+          CHF <CountUp value={parseFloat(data.total_balance)} format={formatMoney} duration={1100} />
+        </div>
         <div className="stat-grid">
           <div>
             <div className="hero-label">Einnahmen diesen Monat</div>
-            <div className="stat-value positive num">+{formatMoney(data.income_total)}</div>
+            <div className="stat-value positive num">
+              +<CountUp value={parseFloat(data.income_total)} format={formatMoney} />
+            </div>
           </div>
           <div>
             <div className="hero-label">Ausgaben diesen Monat</div>
-            <div className="stat-value negative num">-{formatMoney(data.expense_total)}</div>
+            <div className="stat-value negative num">
+              -<CountUp value={parseFloat(data.expense_total)} format={formatMoney} />
+            </div>
           </div>
           <div>
             <div className="hero-label">Netto</div>
-            <div className={`stat-value ${moneyClass(data.net_total)} num`}>{formatMoney(data.net_total)}</div>
+            <div className={`stat-value ${moneyClass(data.net_total)} num`}>
+              <CountUp value={parseFloat(data.net_total)} format={formatMoney} />
+            </div>
           </div>
           {data.open_debts_count > 0 && (
             <div>
               <div className="hero-label">Restschulden ({data.open_debts_count})</div>
-              <div className="stat-value negative num">{formatMoney(data.total_debt)}</div>
+              <div className="stat-value negative num">
+                <CountUp value={parseFloat(data.total_debt)} format={formatMoney} />
+              </div>
             </div>
           )}
         </div>
@@ -171,11 +186,15 @@ export function DashboardPage() {
             <div className="stat-grid">
               <div>
                 <div className="hero-label">Restschuld gesamt</div>
-                <div className="stat-value negative num">{formatMoney(data.total_debt)}</div>
+                <div className="stat-value negative num">
+                  <CountUp value={parseFloat(data.total_debt)} format={formatMoney} />
+                </div>
               </div>
               <div>
                 <div className="hero-label">Mindestraten / Monat</div>
-                <div className="stat-value num">{formatMoney(data.total_minimum)}</div>
+                <div className="stat-value num">
+                  <CountUp value={parseFloat(data.total_minimum)} format={formatMoney} />
+                </div>
               </div>
               <div>
                 <div className="hero-label">Schuldenfrei am</div>
