@@ -31,6 +31,7 @@ export function EnvelopesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<ViewMode>(loadStoredView)
+  const [showArchived, setShowArchived] = useState(false)
   const push = useToast()
 
   function changeView(next: ViewMode) {
@@ -44,12 +45,14 @@ export function EnvelopesPage() {
 
   const load = useCallback(() => {
     setLoading(true)
+    const params: Record<string, number | string> = { year, month }
+    if (!showArchived) params.active_only = 1
     return api
-      .get<Category[]>('/categories/', { params: { year, month, active_only: 1 } })
+      .get<Category[]>('/categories/', { params })
       .then((res) => setCategories(res.data))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month])
+  }, [year, month, showArchived])
 
   useEffect(() => {
     void load()
@@ -73,6 +76,10 @@ export function EnvelopesPage() {
         </div>
         <div className="page-header-actions">
           <MonthSwitcher label={label} onPrev={() => setMonth(prevYear, prevMonth)} onNext={() => setMonth(nextYear, nextMonth)} />
+          <label className="archived-toggle">
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Archivierte anzeigen
+          </label>
           <div className="toggle-group" role="group" aria-label="Ansicht">
             <button type="button" className={view === 'list' ? 'active' : ''} aria-pressed={view === 'list'} onClick={() => changeView('list')}>
               <List size={14} weight="bold" aria-hidden="true" />
@@ -99,7 +106,7 @@ export function EnvelopesPage() {
       ) : view === 'list' ? (
         <div className="row-list">
           {categories.map((c) => (
-            <div className="row-item" key={c.id}>
+            <div className={`row-item${c.is_archived ? ' archived' : ''}`} key={c.id}>
               <KindIcon kind={c.kind} color={c.color} icon={c.icon} />
               <div className="row-main">
                 <Link to={`/envelopes/${c.id}?year=${year}&month=${month}`} className="row-title">
@@ -107,6 +114,7 @@ export function EnvelopesPage() {
                 </Link>
                 <div className="row-sub">
                   <KindBadge kind={c.kind} />
+                  {c.is_archived && <span className="badge">archiviert</span>}
                   {c.keywords && <span className="mono">auto: {c.keywords}</span>}
                   <Link to={`/envelopes/${c.id}/edit`} className="link-action">
                     <PencilSimple size={12} weight="bold" aria-hidden="true" />
@@ -114,7 +122,7 @@ export function EnvelopesPage() {
                   </Link>
                   <button type="button" className="link-action" onClick={() => void toggleArchive(c.id)}>
                     <Archive size={12} weight="bold" aria-hidden="true" />
-                    archivieren
+                    {c.is_archived ? 'reaktivieren' : 'archivieren'}
                   </button>
                 </div>
                 <ProgressBar percent={c.progress} over={c.progress >= 100} />
@@ -153,7 +161,7 @@ export function EnvelopesPage() {
                   </Link>
                   <button type="button" className="link-action" onClick={() => void toggleArchive(c.id)}>
                     <Archive size={12} weight="bold" aria-hidden="true" />
-                    archivieren
+                    {c.is_archived ? 'reaktivieren' : 'archivieren'}
                   </button>
                 </div>
               </div>

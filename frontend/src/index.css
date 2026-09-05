@@ -745,6 +745,9 @@ table.data .link-action + .link-action {
 .envelope-card.archived {
   opacity: 0.55;
 }
+.row-item.archived {
+  opacity: 0.55;
+}
 .envelope-flap {
   height: 46px;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
@@ -1107,6 +1110,14 @@ input[type='checkbox'] {
   flex-wrap: wrap;
   align-items: center;
   margin-bottom: 20px;
+}
+.archived-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--color-muted-fg);
+  white-space: nowrap;
 }
 .search-input {
   width: 220px;

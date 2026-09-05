@@ -107,9 +107,10 @@ export function TransactionsPage() {
   }
 
   async function handleDelete(t: Transaction) {
-    if (t.is_transfer && !confirm('Diese Buchung ist Teil eines Transfers — beide verknüpften Buchungen werden gelöscht. Fortfahren?')) {
-      return
-    }
+    const message = t.is_transfer
+      ? 'Diese Buchung ist Teil eines Transfers — beide verknüpften Buchungen werden gelöscht. Fortfahren?'
+      : `Buchung „${t.description || t.date}“ wirklich löschen?`
+    if (!confirm(message)) return
     try {
       await api.delete(`/transactions/${t.id}/`)
       push('success', t.is_transfer ? 'Transfer gelöscht.' : 'Buchung gelöscht.')
