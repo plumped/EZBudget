@@ -139,6 +139,80 @@ class ImportApiTests(TestCase):
         rows = response.json()["rows"]
         dup_row = next(r for r in rows if r["entry_ref"] == "REF-1001")
         self.assertTrue(dup_row["is_duplicate"])
+        self.assertFalse(dup_row["is_possible_duplicate"])
+
+    def test_parse_view_flags_manual_transaction_without_import_ref_as_possible_duplicate(self):
+        """Eine manuell erfasste Zahlung (z.B. aus dem Schulden-Sweep-Vorschlag) hat
+        keine Bank-Referenz — die harte Duplikat-Prüfung via import_ref greift dafür
+        nicht. Datum+Betrag sollen sie trotzdem als möglichen Treffer markieren,
+        aber NICHT hart blockieren (kein import_ref = keine echte Gewissheit)."""
+        Transaction.objects.create(account=self.account, date="2026-09-02", amount=Decimal("-84.30"))
+        response = self.client.post(
+            "/api/import/parse/",
+            {"account": self.account.id, "camt_file": self._upload("beispiel_camt053.xml")},
+        )
+        rows = response.json()["rows"]
+        row = next(r for r in rows if r["entry_ref"] == "REF-1001")
+        self.assertFalse(row["is_duplicate"])
+        self.assertTrue(row["is_possible_duplicate"])
+
+    def test_parse_view_only_flags_as_many_possible_duplicates_as_existing_matches(self):
+        """Zwei unabhängige echte Buchungen am selben Tag mit demselben Betrag
+        dürfen nicht beide verloren gehen, nur weil zufällig EINE bereits manuell
+        erfasste Buchung mit gleichem Datum/Betrag existiert — die Heuristik muss
+        als Multiset zählen, nicht pauschal jeden Treffer markieren."""
+        # DBIT (Ausgabe) wird vom Parser als negativer Betrag geführt — der manuell
+        # erfasste Vergleichswert muss also ebenfalls negativ sein, damit er matcht.
+        Transaction.objects.create(account=self.account, date="2026-09-05", amount=Decimal("-50.00"))
+        xml = """<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.053.001.02">
+  <BkToCstmrStmt>
+    <GrpHdr><MsgId>MSG-1</MsgId><CreDtTm>2026-09-01T08:00:00</CreDtTm></GrpHdr>
+    <Stmt>
+      <Id>STMT-1</Id>
+      <Acct><Id><IBAN>CH9300762011623852957</IBAN></Id><Ccy>CHF</Ccy></Acct>
+      <Ntry>
+        <Amt Ccy="CHF">50.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-05</Dt></BookgDt>
+        <AcctSvcrRef>REF-A</AcctSvcrRef>
+        <NtryDtls><TxDtls><RmtInf><Ustrd>Zahlung A</Ustrd></RmtInf></TxDtls></NtryDtls>
+      </Ntry>
+      <Ntry>
+        <Amt Ccy="CHF">50.00</Amt>
+        <CdtDbtInd>DBIT</CdtDbtInd>
+        <BookgDt><Dt>2026-09-05</Dt></BookgDt>
+        <AcctSvcrRef>REF-B</AcctSvcrRef>
+        <NtryDtls><TxDtls><RmtInf><Ustrd>Zahlung B</Ustrd></RmtInf></TxDtls></NtryDtls>
+      </Ntry>
+    </Stmt>
+  </BkToCstmrStmt>
+</Document>"""
+        upload = SimpleUploadedFile("two_same.xml", xml.encode("utf-8"), content_type="application/xml")
+        response = self.client.post("/api/import/parse/", {"account": self.account.id, "camt_file": upload})
+        rows = response.json()["rows"]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(sum(1 for r in rows if r["is_possible_duplicate"]), 1)
+
+    def test_confirm_view_does_not_force_skip_possible_duplicate_row(self):
+        """Anders als ein hartes Duplikat (is_duplicate) darf ein möglicher Treffer
+        (is_possible_duplicate) den Import nicht blockieren, wenn der Nutzer die
+        Checkbox bewusst angehakt lässt — der Nutzer könnte ja Recht haben, dass es
+        doch zwei verschiedene Buchungen sind."""
+        rows = [
+            {
+                "date": "2026-09-02", "amount": "-84.30", "description": "Einkauf Migros",
+                "counterparty": "Migros", "entry_ref": "REF-1001", "category_id": self.category.id,
+                "include": True, "is_duplicate": False, "is_possible_duplicate": True,
+            },
+        ]
+        response = self.client.post(
+            "/api/import/confirm/",
+            {"account": self.account.id, "filename": "beispiel_camt053.xml", "rows": rows},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["created"], 1)
 
     def test_confirm_view_creates_transactions_and_import_batch(self):
         rows = [

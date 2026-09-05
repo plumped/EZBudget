@@ -399,6 +399,28 @@ siehe 5.20) auf die offenen Schulden verteilen liesse.
   übernimmt den Gesamtbetrag zusätzlich als Extra-Budget in den bestehenden
   Tilgungsplan-Rechner, um den Zinseffekt direkt sichtbar zu machen.
 
+### 5.22 Weiche Duplikat-Erkennung beim CAMT.053-Import (Datum + Betrag)
+
+Trägt man eine Zahlung zuerst manuell ein (z.B. über "Zahlung erfassen" aus dem
+Sweep-Vorschlag) und importiert später den Kontoauszug, der dieselbe Zahlung enthält,
+erkannte der Import das bisher nicht als Duplikat: Die bestehende Prüfung vergleicht nur
+die Bank-Referenznummer (`import_ref`), die eine manuell erfasste Buchung nie hat — die
+Zahlung würde also doppelt gezählt (Restschuld und Kontostand sinken zweimal).
+
+- `ImportParseView` markiert jetzt zusätzlich Zeilen mit `is_possible_duplicate`, wenn
+  Datum und Betrag exakt mit einer bestehenden Buchung OHNE `import_ref` übereinstimmen.
+  Als Multiset gezählt (`collections.Counter`), damit zwei unabhängige echte Buchungen am
+  selben Tag mit demselben Betrag nicht beide fälschlich markiert werden — nur so viele
+  wie tatsächlich passende bestehende Buchungen existieren.
+  `is_duplicate` (Referenz-Treffer) bleibt unverändert die harte, sichere Prüfung.
+- Anders als bei `is_duplicate` bleibt die Checkbox bei `is_possible_duplicate` bedienbar
+  (nicht deaktiviert) und wird nur vorausgewählt abgewählt — reine Heuristik ohne
+  Gewissheit, der Nutzer kann sie bei Bedarf trotzdem einschliessen. Badge "Evtl. schon
+  erfasst?" statt "Duplikat" macht den Unterschied auch optisch klar.
+- Der Hinweistext beim Erfassen einer Zahlung mit vorausgefülltem Betrag (aus dem
+  Sweep-Vorschlag) macht jetzt explizit klar: entweder hier erfassen ODER später
+  importieren, nicht beides.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

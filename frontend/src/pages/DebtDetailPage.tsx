@@ -174,7 +174,10 @@ export function DebtDetailPage() {
             {prefilledAmount && (
               <p className="helptext">
                 Vorgeschlagener Betrag aus dem Tilgungsplan-Vorschlag. Trage die Zahlung erst ein, nachdem du sie
-                selbst bei deiner Bank überwiesen hast — die App löst keine echte Überweisung aus.
+                selbst bei deiner Bank überwiesen hast — die App löst keine echte Überweisung aus. Wichtig: Erfasse
+                sie entweder hier ODER importiere sie später per Kontoauszug — sonst zählt sie doppelt. Falls sie
+                doch bei beidem auftaucht, erkennt der Import sie anhand von Datum und Betrag als „Evtl. schon
+                erfasst?" und schlägt vor, sie beim Import abzuwählen.
               </p>
             )}
             <form onSubmit={handleSubmit} noValidate>

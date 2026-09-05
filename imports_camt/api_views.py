@@ -1,3 +1,4 @@
+from collections import Counter
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -119,15 +120,35 @@ class ImportParseView(APIView):
                 "import_ref", flat=True
             )
         )
+        # Weiche Duplikat-Erkennung für Buchungen OHNE Bank-Referenz — z.B. eine
+        # Zahlung, die vorher schon manuell erfasst wurde (etwa über "Zahlung
+        # erfassen" beim Schulden-Sweep-Vorschlag) und jetzt zusätzlich importiert
+        # wird: die harte Referenz-Prüfung oben greift dafür nicht, weil eine manuell
+        # erfasste Buchung nie eine import_ref hat. Nur ein Hinweis, kein Blocker
+        # (siehe is_possible_duplicate unten) — als Multiset, damit zwei zufällig
+        # gleich hohe, aber unabhängige Buchungen am selben Tag nicht beide verloren
+        # gehen, sondern nur so viele wie tatsächlich schon vorhandene Buchungen mit
+        # exakt diesem Datum/Betrag existieren.
+        existing_by_date_amount = Counter(
+            Transaction.objects.filter(account=account, import_ref__isnull=True).values_list("date", "amount")
+        )
 
         rows = []
         for row in parsed:
             suggestion = _suggest_category(row["description"], row["counterparty"], row["amount"], categories, rules)
+            is_duplicate = row["entry_ref"] in existing_refs
+            is_possible_duplicate = False
+            if not is_duplicate:
+                key = (row["date"], row["amount"])
+                if existing_by_date_amount.get(key, 0) > 0:
+                    is_possible_duplicate = True
+                    existing_by_date_amount[key] -= 1
             rows.append(
                 {
                     **_serialize_row(row),
                     "suggested_category_id": suggestion.id if suggestion else None,
-                    "is_duplicate": row["entry_ref"] in existing_refs,
+                    "is_duplicate": is_duplicate,
+                    "is_possible_duplicate": is_possible_duplicate,
                 }
             )
 

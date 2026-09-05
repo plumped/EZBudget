@@ -59,7 +59,7 @@ export function ImportPage() {
       setRows(
         res.data.rows.map((r) => ({
           ...r,
-          include: !r.is_duplicate,
+          include: !r.is_duplicate && !r.is_possible_duplicate,
           category_id: r.suggested_category_id,
         })),
       )
@@ -183,7 +183,14 @@ export function ImportPage() {
                         ))}
                       </select>
                     </td>
-                    <td>{row.is_duplicate && <span className="badge">Duplikat</span>}</td>
+                    <td>
+                      {row.is_duplicate && <span className="badge">Duplikat</span>}
+                      {!row.is_duplicate && row.is_possible_duplicate && (
+                        <span className="badge warning" title="Datum und Betrag stimmen mit einer bereits erfassten Buchung überein — z.B. wenn du diese Zahlung schon manuell eingetragen hast.">
+                          Evtl. schon erfasst?
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -825,6 +825,11 @@ a.envelope-name:hover {
   color: var(--color-positive);
   border-color: transparent;
 }
+.badge.warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  border-color: transparent;
+}
 
 /* ---------- Tables ---------- */
 .table-wrap {

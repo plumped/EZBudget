@@ -221,6 +221,7 @@ export interface ImportRow {
   account_iban: string
   suggested_category_id: number | null
   is_duplicate: boolean
+  is_possible_duplicate: boolean
 }
 
 export type RuleMatchType = 'contains' | 'startswith' | 'exact'
