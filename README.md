@@ -479,6 +479,18 @@ nächsten unerwarteten Rechnung wieder auf der Kreditkarte.
   Schulden-Seite zeigt einen Hinweis-Banner, solange der Fonds nicht voll ist, und
   der Sweep-Vorschlag listet die Notfallfonds-Zuteilung vor den Schulden-Zeilen.
 
+### 5.25 Hilfe-Seite mit vollständiger Benutzeranleitung
+
+Neuer Menüpunkt "Hilfe" (`/help`, `frontend/src/pages/HelpPage.tsx`) mit einer
+zusammenhängenden, für Endnutzer geschriebenen Anleitung zu allen Funktionen der
+App — Envelope-Budgeting-Grundidee, Konten, Umschläge (inkl. Sparziel und
+Notfallfonds-Markierung), Buchungen, Transfer, Daueraufträge, CAMT.053-Import
+(inkl. Duplikat-Erkennung), Regeln, Schulden/Tilgungsplan (inkl. maximaler
+Zusatzzahlung, Kontoverknüpfung, Sweep-Vorschlag, Notfallfonds-Priorität), Trends
+und Einstellungen. Ein Inhaltsverzeichnis mit Anker-Links oben auf der Seite
+springt per Klick zum jeweiligen Abschnitt (`html { scroll-behavior: smooth }`,
+respektiert `prefers-reduced-motion`).
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

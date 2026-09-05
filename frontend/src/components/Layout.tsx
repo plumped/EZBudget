@@ -7,6 +7,7 @@ import {
   Funnel,
   GearSix,
   House,
+  Question,
   Receipt,
   SignOut,
   UploadSimple,
@@ -27,6 +28,7 @@ const NAV_ITEMS: { to: string; label: string; icon: Icon; end?: boolean }[] = [
   { to: '/import', label: 'Import', icon: UploadSimple },
   { to: '/rules', label: 'Regeln', icon: Funnel },
   { to: '/settings', label: 'Einstellungen', icon: GearSix },
+  { to: '/help', label: 'Hilfe', icon: Question },
 ]
 
 export function Layout() {

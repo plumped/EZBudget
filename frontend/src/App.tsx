@@ -15,6 +15,7 @@ import { DebtsPage } from './pages/DebtsPage'
 import { EnvelopeDetailPage } from './pages/EnvelopeDetailPage'
 import { EnvelopeFormPage } from './pages/EnvelopeFormPage'
 import { EnvelopesPage } from './pages/EnvelopesPage'
+import { HelpPage } from './pages/HelpPage'
 import { ImportHistoryPage } from './pages/ImportHistoryPage'
 import { ImportPage } from './pages/ImportPage'
 import { LoginPage } from './pages/LoginPage'
@@ -82,6 +83,8 @@ export default function App() {
                   <Route path="/rules/:id/edit" element={<RuleFormPage />} />
 
                   <Route path="/settings" element={<SettingsPage />} />
+
+                  <Route path="/help" element={<HelpPage />} />
                 </Route>
               </Routes>
             </ToastProvider>
