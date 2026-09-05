@@ -259,7 +259,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   color: #fff;
 }
 
-.sidebar-help {
+.sidebar-bottom {
   margin-top: auto;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -1595,7 +1595,7 @@ input[type='checkbox'] {
   .sidebar-nav a span:last-child {
     display: none;
   }
-  .sidebar-help {
+  .sidebar-bottom {
     margin-top: 0;
     margin-left: auto;
     padding-top: 0;
