@@ -52,6 +52,15 @@ class Debt(models.Model):
     last_interest_month = models.PositiveSmallIntegerField(
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(12)]
     )
+    last_milestone_reached = models.PositiveSmallIntegerField(
+        default=0,
+        validators=[MaxValueValidator(100)],
+        help_text=(
+            "Höchster Tilgungs-Meilenstein (25/50/75/100), der bereits als erreicht gemeldet "
+            "wurde — verhindert, dass dieselbe Meldung beim nächsten Dashboard-Aufruf erneut "
+            "erscheint. Wird automatisch von check_new_milestones() gepflegt."
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

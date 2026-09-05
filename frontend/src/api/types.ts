@@ -37,6 +37,7 @@ export interface Category {
   target_date: string | null
   target_progress_percent: number | null
   budget_history: CategoryBudgetHistoryEntry[]
+  is_emergency_fund: boolean
   is_archived: boolean
   created_at: string
   spent: string
@@ -106,6 +107,16 @@ export interface Debt {
 
 export type PayoffStrategy = 'avalanche' | 'snowball'
 
+export interface EmergencyFundInfo {
+  category_id: number | null
+  category_name: string | null
+  target: string
+  current: string
+  gap: string
+  total_diverted: string
+  filled_date: string | null
+}
+
 export interface PayoffResult {
   strategy: PayoffStrategy
   extra_budget: string
@@ -118,6 +129,7 @@ export interface PayoffResult {
   debt_free_date: string | null
   reached_max: boolean
   unallocated_extra: string
+  emergency_fund: EmergencyFundInfo
   schedule: { month: number; date: string | null; total_balance: string }[]
 }
 
@@ -127,6 +139,7 @@ export interface SweepProposal {
   days_remaining: number
   total_available: string
   sources: { id: number; name: string; amount: string }[]
+  to_emergency_fund: { category_id: number; category_name: string; amount: string } | null
   allocations: { id: number; name: string; amount: string }[]
   unallocated: string
 }
@@ -157,6 +170,9 @@ export interface DashboardData {
   total_debt: string
   total_minimum: string
   open_debts_count: number
+  debt_free_date: string | null
+  overall_debt_progress_percent: number | null
+  new_milestones: { debt_id: number; debt_name: string; milestone: number }[]
   recent_transactions: Transaction[]
   generated_recurring: Transaction[]
   uncategorized_count: number

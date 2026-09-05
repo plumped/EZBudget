@@ -519,6 +519,58 @@ class CategoryHistoryAndTargetApiTests(TestCase):
         self.assertIsNone(response.json()["target_progress_percent"])
 
 
+class EmergencyFundCategoryTests(TestCase):
+    """Notfallfonds-Priorität: es kann immer nur ein Umschlag als Notfallfonds
+    markiert sein, und er braucht zwingend ein Sparziel (target_amount), sonst
+    gäbe es keine Lücke, die vor der Schuldentilgung zuerst gefüllt werden müsste."""
+
+    def test_marking_a_new_fund_unmarks_the_previous_one(self):
+        first = Category.objects.create(
+            name="Alter Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("2000"), is_emergency_fund=True,
+        )
+        second = Category.objects.create(
+            name="Neuer Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("3000"), is_emergency_fund=True,
+        )
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertFalse(first.is_emergency_fund)
+        self.assertTrue(second.is_emergency_fund)
+
+    def test_saving_other_fields_does_not_unmark_existing_fund(self):
+        fund = Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("2000"), is_emergency_fund=True,
+        )
+        other = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+        other.monthly_budget = Decimal("400")
+        other.save()
+        fund.refresh_from_db()
+        self.assertTrue(fund.is_emergency_fund)
+
+
+class EmergencyFundApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_marking_emergency_fund_without_target_amount_rejected(self):
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Notgroschen", "kind": "savings", "is_emergency_fund": True},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("is_emergency_fund", response.json())
+
+    def test_marking_emergency_fund_with_target_amount_succeeds(self):
+        response = self.client.post(
+            "/api/categories/",
+            {"name": "Notgroschen", "kind": "savings", "target_amount": "3000", "is_emergency_fund": True},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json()["is_emergency_fund"])
+
+
 class TransferApiTests(TestCase):
     def setUp(self):
         User.objects.create_user(username="tester", password="testpass12345")
@@ -689,6 +741,75 @@ class DashboardUncategorizedCountTests(TestCase):
         )
         response = self.client.get("/api/dashboard/")
         self.assertEqual(response.json()["uncategorized_count"], 0)
+
+
+class DashboardDebtFreeAndMilestoneTests(TestCase):
+    """'Schuldenfrei am ...' und Meilenstein-Meldungen gehören aufs Dashboard, nicht
+    erst versteckt hinter einem Klick auf /debts (siehe README 5.23)."""
+
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_debt_free_date_is_none_without_open_debts(self):
+        response = self.client.get("/api/dashboard/")
+        data = response.json()
+        self.assertIsNone(data["debt_free_date"])
+        self.assertIsNone(data["overall_debt_progress_percent"])
+
+    def test_debt_free_date_computed_from_minimum_payments_only(self):
+        from debts.models import Debt
+
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("500"),
+        )
+        response = self.client.get("/api/dashboard/")
+        data = response.json()
+        self.assertIsNotNone(data["debt_free_date"])
+
+    def test_overall_progress_counts_paid_off_debts_fully(self):
+        from debts.models import Debt
+
+        Debt.objects.create(
+            name="Abbezahlt", principal=Decimal("1000"), current_balance=Decimal("0"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("100"), is_paid_off=True,
+        )
+        Debt.objects.create(
+            name="Offen", principal=Decimal("1000"), current_balance=Decimal("500"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/dashboard/")
+        # (1000 bezahlt + 500 bezahlt) / (1000 + 1000) = 75%
+        self.assertEqual(response.json()["overall_debt_progress_percent"], 75)
+
+    def test_new_milestone_reported_once_not_repeated(self):
+        from debts.models import Debt
+
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("700"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        first = self.client.get("/api/dashboard/").json()
+        self.assertEqual(first["new_milestones"], [{"debt_id": 1, "debt_name": "Kredit", "milestone": 25}])
+
+        second = self.client.get("/api/dashboard/").json()
+        self.assertEqual(second["new_milestones"], [])
+
+    def test_jump_across_multiple_thresholds_reports_only_highest(self):
+        """Springt eine Zahlung von 0% direkt auf 90% (also über die Schwellen 25/50/75
+        hinweg), soll nur der höchste tatsächlich erreichte Meilenstein (75, da 90 unter
+        100 liegt) gemeldet werden — nicht drei einzelne Meldungen."""
+        from debts.models import Debt
+
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        debt.current_balance = Decimal("100")
+        debt.save()
+        data = self.client.get("/api/dashboard/").json()
+        self.assertEqual(data["new_milestones"], [{"debt_id": debt.id, "debt_name": "Kredit", "milestone": 75}])
 
 
 class TrendsApiTests(TestCase):

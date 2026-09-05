@@ -80,7 +80,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "kind", "monthly_budget", "keywords", "color", "icon",
             "target_amount", "target_date", "target_progress_percent", "budget_history",
-            "is_archived", "created_at", "spent", "available", "rollover", "progress",
+            "is_emergency_fund", "is_archived", "created_at", "spent", "available", "rollover", "progress",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -112,6 +112,20 @@ class CategorySerializer(serializers.ModelSerializer):
             {"year": h.year, "month": h.month, "monthly_budget": str(h.monthly_budget)}
             for h in obj.budget_history.order_by("-year", "-month")
         ]
+
+    def validate(self, attrs):
+        is_emergency_fund = attrs.get("is_emergency_fund", getattr(self.instance, "is_emergency_fund", False))
+        target_amount = attrs.get("target_amount", getattr(self.instance, "target_amount", None))
+        if is_emergency_fund and not target_amount:
+            raise serializers.ValidationError(
+                {
+                    "is_emergency_fund": (
+                        "Ein Notfallfonds braucht ein Sparziel (target_amount) — sonst gibt es keine Lücke, "
+                        "die vor der Schuldentilgung zuerst gefüllt werden müsste."
+                    )
+                }
+            )
+        return attrs
 
 
 class TransactionSerializer(serializers.ModelSerializer):

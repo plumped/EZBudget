@@ -336,6 +336,10 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   background: var(--color-warning-soft);
   color: var(--color-warning);
 }
+.alert-banner.info {
+  background: var(--color-secondary-soft);
+  color: var(--color-secondary);
+}
 .alert-banner .icon {
   flex-shrink: 0;
 }

@@ -242,9 +242,10 @@ class DashboardView(APIView):
     def get(self, request):
         generated = generate_due_recurring()
 
-        from debts.services import accrue_monthly_interest
+        from debts.services import accrue_monthly_interest, check_new_milestones, simulate_payoff
 
         accrue_monthly_interest()
+        new_milestones = check_new_milestones()
 
         year, month = _requested_year_month(request)
         first, last, days_in_month, (prev_year, prev_month), (next_year, next_month) = _month_bounds(year, month)
@@ -283,6 +284,36 @@ class DashboardView(APIView):
         total_debt = sum((d.current_balance for d in open_debts), Decimal("0"))
         total_minimum = sum((d.minimum_payment for d in open_debts), Decimal("0"))
 
+        # Gesamtfortschritt über ALLE je erfassten Schulden (auch bereits getilgte
+        # zählen ihren vollen Anteil) — nicht nur die noch offenen, sonst würde eine
+        # komplett abbezahlte Schuld aus der Statistik verschwinden statt als Erfolg
+        # mitgezählt zu werden.
+        all_debts = list(Debt.objects.all())
+        total_principal = sum((d.principal for d in all_debts), Decimal("0"))
+        total_paid_off = sum((d.paid_so_far for d in all_debts), Decimal("0"))
+        overall_debt_progress_percent = (
+            int(min(max((total_paid_off / total_principal) * 100, 0), 100)) if total_principal > 0 else None
+        )
+
+        debt_free_date = None
+        if open_debts.exists():
+            debt_dicts = [
+                {
+                    "id": d.id,
+                    "name": d.name,
+                    "balance": d.current_balance,
+                    "rate": d.interest_rate,
+                    "minimum": d.minimum_payment,
+                    "max_extra": d.max_extra_payment,
+                }
+                for d in open_debts
+            ]
+            # Nur mit den Mindestraten (kein Extra-Budget) — die pessimistischste,
+            # aber garantierte Prognose. Mit Extra-Zahlungen kann es schneller gehen,
+            # siehe der Tilgungsplan-Rechner unter /debts.
+            payoff = simulate_payoff(debt_dicts, strategy="avalanche", extra_budget=Decimal("0"), start_date=date.today())
+            debt_free_date = payoff.debt_free_date
+
         recent_transactions = Transaction.objects.select_related("account", "category")[:8]
 
         # Transfers sind absichtlich ohne Umschlag (siehe TransferView) — zählen hier nicht als
@@ -316,6 +347,9 @@ class DashboardView(APIView):
                 "total_debt": str(total_debt),
                 "total_minimum": str(total_minimum),
                 "open_debts_count": open_debts.count(),
+                "debt_free_date": debt_free_date,
+                "overall_debt_progress_percent": overall_debt_progress_percent,
+                "new_milestones": new_milestones,
                 "recent_transactions": TransactionSerializer(recent_transactions, many=True, context=ctx).data,
                 "generated_recurring": TransactionSerializer(generated, many=True, context=ctx).data,
                 "uncategorized_count": uncategorized_count,

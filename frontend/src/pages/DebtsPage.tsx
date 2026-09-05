@@ -1,4 +1,4 @@
-import { ArrowRight, ChartLineDown, PencilSimple, Plus, Sparkle, Warning } from '@phosphor-icons/react'
+import { ArrowRight, ChartLineDown, PencilSimple, PiggyBank, Plus, Sparkle, Warning } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -140,6 +140,15 @@ export function DebtsPage() {
             </div>
           </div>
 
+          {result && result.emergency_fund.category_id && parseFloat(result.emergency_fund.gap) > 0 && (
+            <div className="alert-banner info">
+              <PiggyBank size={18} weight="fill" className="icon" aria-hidden="true" />
+              Notfallfonds „{result.emergency_fund.category_name}" ist noch nicht voll (
+              {formatMoney(result.emergency_fund.current)} von {formatMoney(result.emergency_fund.target)}) — Extra-Budget
+              füllt zuerst diese Lücke, bevor es an die Schulden geht.
+            </div>
+          )}
+
           {proposal && proposal.in_window && parseFloat(proposal.total_available) > 0 && (
             <div className="card">
               <div className="hero-label">
@@ -153,6 +162,18 @@ export function DebtsPage() {
                 hier ein.
               </p>
               <ul className="sweep-allocations">
+                {proposal.to_emergency_fund && (
+                  <li>
+                    <span>
+                      {formatMoney(proposal.to_emergency_fund.amount)} an Notfallfonds{' '}
+                      <strong>{proposal.to_emergency_fund.category_name}</strong>
+                    </span>
+                    <Link to={`/envelopes/${proposal.to_emergency_fund.category_id}`} className="link-action">
+                      Umschlag ansehen
+                      <ArrowRight size={12} weight="bold" aria-hidden="true" />
+                    </Link>
+                  </li>
+                )}
                 {proposal.allocations.map((a) => (
                   <li key={a.id}>
                     <span>

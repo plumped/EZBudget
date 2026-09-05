@@ -10,7 +10,9 @@ from .models import Debt
 from .services import (
     accrue_monthly_interest,
     allocate_extra_once,
+    check_new_milestones,
     eligible_envelope_surplus,
+    emergency_fund_status,
     simulate_payoff,
     sweep_window_status,
 )
@@ -261,6 +263,123 @@ class EligibleEnvelopeSurplusTests(TestCase):
         self.assertEqual(sources, [])
 
 
+class EmergencyFundStatusTests(TestCase):
+    """Notfallfonds-Priorität: bewährtes Prinzip aus der Schuldenberatung — erst
+    einen Puffer aufbauen, bevor Extra-Budget aggressiv auf Schulden verteilt wird."""
+
+    def test_no_emergency_fund_marked_returns_zero_gap(self):
+        Category.objects.create(name="Ferien", kind=Category.Kind.SAVINGS, target_amount=Decimal("2000"))
+        today = date.today()
+        fund, target, current, gap = emergency_fund_status(today.year, today.month)
+        self.assertIsNone(fund)
+        self.assertEqual(gap, Decimal("0"))
+
+    def test_marked_fund_without_target_amount_treated_as_none(self):
+        Category.objects.create(name="Notgroschen", kind=Category.Kind.SAVINGS, is_emergency_fund=True)
+        today = date.today()
+        fund, target, current, gap = emergency_fund_status(today.year, today.month)
+        self.assertIsNone(fund)
+        self.assertEqual(gap, Decimal("0"))
+
+    def test_computes_gap_to_target(self):
+        today = date.today()
+        category = Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, monthly_budget=Decimal("100"),
+            target_amount=Decimal("3000"), is_emergency_fund=True,
+        )
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        Transaction.objects.create(account=account, category=category, date=today, amount=Decimal("-40"))
+        fund, target, current, gap = emergency_fund_status(today.year, today.month)
+        self.assertEqual(fund, category)
+        self.assertEqual(target, Decimal("3000"))
+        self.assertEqual(current, Decimal("60"))
+        self.assertEqual(gap, Decimal("2940"))
+
+    def test_gap_is_zero_once_fund_reaches_target(self):
+        today = date.today()
+        category = Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, monthly_budget=Decimal("5000"),
+            target_amount=Decimal("3000"), is_emergency_fund=True,
+        )
+        _, _, _, gap = emergency_fund_status(today.year, today.month)
+        self.assertEqual(gap, Decimal("0"))
+
+    def test_archived_emergency_fund_ignored(self):
+        Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("3000"),
+            is_emergency_fund=True, is_archived=True,
+        )
+        today = date.today()
+        fund, _, _, gap = emergency_fund_status(today.year, today.month)
+        self.assertIsNone(fund)
+        self.assertEqual(gap, Decimal("0"))
+
+
+class SimulatePayoffEmergencyFundTests(TestCase):
+    def test_extra_budget_fills_gap_before_any_debt(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("0"), "minimum": Decimal("50")}]
+        result = simulate_payoff(
+            debts, strategy="avalanche", extra_budget=Decimal("100"), emergency_fund_gap=Decimal("250"),
+        )
+        first_month = result.schedule[0]
+        # 100 Extra-Budget geht komplett in den Notfallfonds, die Schuld bekommt in
+        # Monat 1 nur ihre Mindestrate (1000 - 50 = 950), keine Zuzahlung.
+        self.assertEqual(first_month["balances"][1], Decimal("950"))
+        self.assertEqual(result.emergency_fund_total, Decimal("250"))
+
+    def test_extra_flows_to_debt_once_gap_filled(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("0"), "minimum": Decimal("50")}]
+        result = simulate_payoff(
+            debts, strategy="avalanche", extra_budget=Decimal("100"), emergency_fund_gap=Decimal("150"),
+            start_date=date(2026, 9, 1),
+        )
+        # Monat 1: 100 in den Fonds (Lücke 150 -> 50 verbleibend), Schuld nur Mindestrate.
+        self.assertEqual(result.schedule[0]["balances"][1], Decimal("950"))
+        # Monat 2: 50 schliessen den Fonds, restliche 50 Extra-Budget gehen an die Schuld.
+        self.assertEqual(result.schedule[1]["balances"][1], Decimal("850"))
+        self.assertEqual(result.emergency_fund_total, Decimal("150"))
+        # Der Fonds wird während der Verarbeitung von Monat 2 (Datum 2026-11-01 in
+        # der Simulation, siehe schedule[1]["date"]) geschlossen.
+        self.assertEqual(result.emergency_fund_filled_date, date(2026, 11, 1))
+
+    def test_zero_gap_behaves_exactly_as_before(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("5"), "minimum": Decimal("100")}]
+        without_param = simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("50"))
+        with_zero_gap = simulate_payoff(
+            debts, strategy="avalanche", extra_budget=Decimal("50"), emergency_fund_gap=Decimal("0")
+        )
+        self.assertEqual(without_param.months, with_zero_gap.months)
+        self.assertEqual(without_param.total_interest, with_zero_gap.total_interest)
+
+
+class AllocateExtraOnceEmergencyFundTests(TestCase):
+    def test_gap_consumes_pool_before_debts(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("10")}]
+        result = allocate_extra_once(
+            debts, strategy="avalanche", extra_budget=Decimal("100"), emergency_fund_gap=Decimal("60")
+        )
+        self.assertEqual(result.to_emergency_fund, Decimal("60"))
+        self.assertEqual(result.allocations, [{"id": 1, "name": "Kredit", "amount": Decimal("40")}])
+
+    def test_gap_larger_than_pool_leaves_nothing_for_debts(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("10")}]
+        result = allocate_extra_once(
+            debts, strategy="avalanche", extra_budget=Decimal("100"), emergency_fund_gap=Decimal("500")
+        )
+        self.assertEqual(result.to_emergency_fund, Decimal("100"))
+        self.assertEqual(result.allocations, [])
+        self.assertEqual(result.unallocated, Decimal("0"))
+
+    def test_zero_gap_behaves_exactly_as_before(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("10")}]
+        without_param = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("100"))
+        with_zero_gap = allocate_extra_once(
+            debts, strategy="avalanche", extra_budget=Decimal("100"), emergency_fund_gap=Decimal("0")
+        )
+        self.assertEqual(without_param.allocations, with_zero_gap.allocations)
+        self.assertEqual(with_zero_gap.to_emergency_fund, Decimal("0"))
+
+
 class SweepWindowStatusTests(TestCase):
     """Der Sweep-Vorschlag darf nicht mitten im Monat auftauchen: ein Umschlag-
     Übertrag wächst im Lauf des Monats einfach an, weil noch nicht alles
@@ -507,6 +626,34 @@ class PayoffApiTests(TestCase):
         response = self.client.get("/api/debts/payoff/")
         self.assertEqual(response.status_code, 403)
 
+    def test_payoff_endpoint_reports_emergency_fund_status(self):
+        today = date.today()
+        fund = Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("500"), is_emergency_fund=True,
+        )
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/payoff/", {"strategy": "avalanche", "extra": "100"})
+        data = response.json()
+        self.assertEqual(data["emergency_fund"]["category_id"], fund.id)
+        self.assertEqual(data["emergency_fund"]["gap"], "500.00")
+        # Das ganze Extra-Budget von Monat 1 geht zuerst in den Fonds — die Schuld
+        # bekommt in month[0] nur ihre Mindestrate (1000-100=900).
+        self.assertEqual(data["schedule"][0]["total_balance"], "900.00")
+
+    def test_payoff_endpoint_without_emergency_fund_unaffected(self):
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/payoff/", {"strategy": "avalanche", "extra": "100"})
+        data = response.json()
+        self.assertIsNone(data["emergency_fund"]["category_id"])
+        self.assertEqual(data["emergency_fund"]["gap"], "0.00")
+        self.assertEqual(data["schedule"][0]["total_balance"], "800.00")
+
 
 class SweepProposalApiTests(TestCase):
     def setUp(self):
@@ -549,6 +696,26 @@ class SweepProposalApiTests(TestCase):
         _, _, expected_days, expected_in_window = sweep_window_status(date.today(), get_month_start_day())
         self.assertEqual(data["days_remaining"], expected_days)
         self.assertEqual(data["in_window"], expected_in_window)
+
+    def test_sweep_proposal_diverts_to_emergency_fund_before_debts(self):
+        today = date.today()
+        fund = Category.objects.create(
+            name="Notgroschen", kind=Category.Kind.SAVINGS, target_amount=Decimal("1000"), is_emergency_fund=True,
+        )
+        surplus_category = Category.objects.create(
+            name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("400"),
+        )
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        Transaction.objects.create(account=account, category=surplus_category, date=today, amount=Decimal("-350"))
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/sweep-proposal/")
+        data = response.json()
+        self.assertEqual(data["total_available"], "50.00")
+        self.assertEqual(data["to_emergency_fund"], {"category_id": fund.id, "category_name": "Notgroschen", "amount": "50.00"})
+        self.assertEqual(data["allocations"], [])
 
     def test_sweep_proposal_rejects_anonymous_user(self):
         self.client.logout()
@@ -616,6 +783,69 @@ class DebtAccountLinkTests(TestCase):
         self.assertEqual(response.status_code, 201)
         self.debt.refresh_from_db()
         self.assertEqual(self.debt.current_balance, Decimal("300"))
+
+
+class CheckNewMilestonesTests(TestCase):
+    """Meilenstein-Meldungen sind zustandsbehaftet (Debt.last_milestone_reached),
+    damit dieselbe Meldung nicht bei jedem Dashboard-Aufruf erneut erscheint."""
+
+    def test_no_milestone_below_25_percent(self):
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("900"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        self.assertEqual(check_new_milestones(), [])
+
+    def test_25_percent_reported_once(self):
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("750"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        self.assertEqual(check_new_milestones(), [{"debt_id": debt.id, "debt_name": "Kredit", "milestone": 25}])
+        self.assertEqual(check_new_milestones(), [])
+        debt.refresh_from_db()
+        self.assertEqual(debt.last_milestone_reached, 25)
+
+    def test_progressing_further_reports_next_milestone_only(self):
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("750"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        check_new_milestones()
+        debt.current_balance = Decimal("500")
+        debt.save()
+        self.assertEqual(check_new_milestones(), [{"debt_id": debt.id, "debt_name": "Kredit", "milestone": 50}])
+
+    def test_fully_paid_off_debt_still_reports_100_percent_milestone(self):
+        """Eine vollständig getilgte Schuld wird beim Auslösen automatisch
+        is_paid_off=True gesetzt — der 100%-Meilenstein, der emotional der wichtigste
+        ist, darf dadurch nicht verloren gehen."""
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        debt = Debt.objects.create(
+            name="Kredit", principal=Decimal("100"), current_balance=Decimal("100"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("100"),
+        )
+        Transaction.objects.create(
+            account=account, category=debt.category, date=date(2026, 9, 5), amount=Decimal("-100"),
+        )
+        debt.refresh_from_db()
+        self.assertTrue(debt.is_paid_off)
+        self.assertEqual(check_new_milestones(), [{"debt_id": debt.id, "debt_name": "Kredit", "milestone": 100}])
+
+    def test_multiple_debts_each_reported_independently(self):
+        debt1 = Debt.objects.create(
+            name="Erste", principal=Decimal("1000"), current_balance=Decimal("700"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        debt2 = Debt.objects.create(
+            name="Zweite", principal=Decimal("1000"), current_balance=Decimal("100"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        result = check_new_milestones()
+        self.assertEqual(
+            {(r["debt_id"], r["milestone"]) for r in result},
+            {(debt1.id, 25), (debt2.id, 75)},
+        )
 
 
 class DebtInterestAccrualTests(TestCase):

@@ -11,7 +11,13 @@ from core.serializers import TransactionSerializer
 
 from .models import Debt
 from .serializers import DebtSerializer
-from .services import allocate_extra_once, eligible_envelope_surplus, simulate_payoff, sweep_window_status
+from .services import (
+    allocate_extra_once,
+    eligible_envelope_surplus,
+    emergency_fund_status,
+    simulate_payoff,
+    sweep_window_status,
+)
 
 
 class DebtViewSet(viewsets.ModelViewSet):
@@ -85,6 +91,8 @@ class DebtViewSet(viewsets.ModelViewSet):
 
 class PayoffSimulationView(APIView):
     def get(self, request):
+        from core.budget_month import budget_period_for_date, get_month_start_day
+
         strategy = request.query_params.get("strategy", "avalanche")
         if strategy not in ("avalanche", "snowball"):
             strategy = "avalanche"
@@ -108,7 +116,12 @@ class PayoffSimulationView(APIView):
             }
             for d in debts
         ]
-        result = simulate_payoff(debt_dicts, strategy=strategy, extra_budget=extra_budget, start_date=date.today())
+        year, month = budget_period_for_date(date.today(), get_month_start_day())
+        fund, fund_target, fund_current, fund_gap = emergency_fund_status(year, month)
+        result = simulate_payoff(
+            debt_dicts, strategy=strategy, extra_budget=extra_budget, start_date=date.today(),
+            emergency_fund_gap=fund_gap,
+        )
 
         return Response(
             {
@@ -123,6 +136,15 @@ class PayoffSimulationView(APIView):
                 "debt_free_date": result.debt_free_date,
                 "reached_max": result.reached_max,
                 "unallocated_extra": str(result.unallocated_extra.quantize(Decimal("0.01"))),
+                "emergency_fund": {
+                    "category_id": fund.id if fund else None,
+                    "category_name": fund.name if fund else None,
+                    "target": str(fund_target.quantize(Decimal("0.01"))),
+                    "current": str(fund_current.quantize(Decimal("0.01"))),
+                    "gap": str(fund_gap.quantize(Decimal("0.01"))),
+                    "total_diverted": str(result.emergency_fund_total.quantize(Decimal("0.01"))),
+                    "filled_date": result.emergency_fund_filled_date,
+                },
                 "schedule": [
                     {
                         "month": row["month"],
@@ -154,6 +176,7 @@ class SweepProposalView(APIView):
 
         year, month, days_remaining, in_window = sweep_window_status(date.today(), get_month_start_day())
         total_available, sources = eligible_envelope_surplus(year, month)
+        fund, fund_target, fund_current, fund_gap = emergency_fund_status(year, month)
 
         debts = Debt.objects.filter(is_paid_off=False)
         debt_dicts = [
@@ -166,7 +189,9 @@ class SweepProposalView(APIView):
             }
             for d in debts
         ]
-        result = allocate_extra_once(debt_dicts, strategy=strategy, extra_budget=total_available)
+        result = allocate_extra_once(
+            debt_dicts, strategy=strategy, extra_budget=total_available, emergency_fund_gap=fund_gap
+        )
 
         return Response(
             {
@@ -178,6 +203,11 @@ class SweepProposalView(APIView):
                     {"id": s["id"], "name": s["name"], "amount": str(s["amount"].quantize(Decimal("0.01")))}
                     for s in sources
                 ],
+                "to_emergency_fund": (
+                    {"category_id": fund.id, "category_name": fund.name, "amount": str(result.to_emergency_fund.quantize(Decimal("0.01")))}
+                    if fund and result.to_emergency_fund > 0
+                    else None
+                ),
                 "allocations": [
                     {"id": a["id"], "name": a["name"], "amount": str(a["amount"].quantize(Decimal("0.01")))}
                     for a in result.allocations

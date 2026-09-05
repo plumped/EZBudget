@@ -10,7 +10,7 @@ import { EmptyState } from '../components/EmptyState'
 import { Skeleton, SkeletonRows } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
 import { useMonthParam } from '../utils/useMonthParam'
-import { formatMoney, moneyClass } from '../utils/format'
+import { formatDate, formatMoney, moneyClass } from '../utils/format'
 
 export function DashboardPage() {
   const { year, month, label, prevYear, prevMonth, nextYear, nextMonth, setMonth } = useMonthParam()
@@ -28,6 +28,9 @@ export function DashboardPage() {
         setData(res.data)
         for (const txn of res.data.generated_recurring) {
           push('info', `Wiederkehrende Buchung generiert: ${txn.description} (${formatMoney(txn.amount)}).`)
+        }
+        for (const milestone of res.data.new_milestones) {
+          push('success', `Meilenstein erreicht: ${milestone.milestone}% von „${milestone.debt_name}" getilgt!`)
         }
       })
       .finally(() => {
@@ -162,6 +165,9 @@ export function DashboardPage() {
             </span>
           </div>
           <div className="card">
+            {data.overall_debt_progress_percent !== null && (
+              <ProgressBar percent={data.overall_debt_progress_percent} />
+            )}
             <div className="stat-grid">
               <div>
                 <div className="hero-label">Restschuld gesamt</div>
@@ -170,6 +176,10 @@ export function DashboardPage() {
               <div>
                 <div className="hero-label">Mindestraten / Monat</div>
                 <div className="stat-value num">{formatMoney(data.total_minimum)}</div>
+              </div>
+              <div>
+                <div className="hero-label">Schuldenfrei am</div>
+                <div className="stat-value num">{formatDate(data.debt_free_date)}</div>
               </div>
             </div>
           </div>

@@ -96,6 +96,16 @@ class Category(models.Model):
     target_date = models.DateField(
         null=True, blank=True, help_text="Optionales Zieldatum, bis wann das Sparziel erreicht sein soll.",
     )
+    is_emergency_fund = models.BooleanField(
+        default=False,
+        help_text=(
+            "Notfallfonds-Umschlag: bevor der Tilgungsplan-Rechner und der Sweep-Vorschlag "
+            "Extra-Budget auf Schulden verteilen, wird zuerst die Lücke zum Sparziel (target_amount) "
+            "dieses Umschlags gefüllt — bewährtes Prinzip aus der Schuldenberatung, damit die "
+            "nächste unerwartete Rechnung nicht wieder auf der Kreditkarte landet. Es kann immer "
+            "nur ein Umschlag als Notfallfonds markiert sein."
+        ),
+    )
     is_archived = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
 
@@ -123,6 +133,11 @@ class Category(models.Model):
             previous_budget = previous.monthly_budget if previous else None
         changed = previous_budget is not None and previous_budget != self.monthly_budget
         super().save(*args, **kwargs)
+        if self.is_emergency_fund:
+            # Es kann immer nur ein Notfallfonds-Umschlag aktiv sein — statt einen
+            # Fehler zu verlangen, wird ein zuvor markierter automatisch abgewählt
+            # (wie eine Radio-Auswahl), sobald ein neuer gesetzt wird.
+            Category.objects.filter(is_emergency_fund=True).exclude(pk=self.pk).update(is_emergency_fund=False)
         if is_new:
             self._record_budget_history(self.monthly_budget)
         elif changed:

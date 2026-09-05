@@ -35,6 +35,7 @@ interface FormState {
   icon: string
   target_amount: string
   target_date: string
+  is_emergency_fund: boolean
   is_archived: boolean
 }
 
@@ -47,6 +48,7 @@ const EMPTY: FormState = {
   icon: KIND_ICON_DEFAULTS.variable,
   target_amount: '',
   target_date: '',
+  is_emergency_fund: false,
   is_archived: false,
 }
 
@@ -74,6 +76,7 @@ export function EnvelopeFormPage() {
         icon: c.icon,
         target_amount: c.target_amount ?? '',
         target_date: c.target_date ?? '',
+        is_emergency_fund: c.is_emergency_fund,
         is_archived: c.is_archived,
       })
       setLoading(false)
@@ -198,6 +201,23 @@ export function EnvelopeFormPage() {
           <p className="helptext" id="target-help">
             Zielbetrag, bis zu dem dieser Umschlag inkl. Übertrag angespart werden soll — z.B. für Sparziele.
           </p>
+          <div className="field checkbox-field">
+            <input
+              id="is_emergency_fund"
+              type="checkbox"
+              checked={form.is_emergency_fund}
+              onChange={(e) => setForm({ ...form, is_emergency_fund: e.target.checked })}
+              aria-describedby="emergency-fund-help"
+            />
+            <label htmlFor="is_emergency_fund">Das ist mein Notfallfonds</label>
+          </div>
+          <p className="helptext" id="emergency-fund-help">
+            Bevor der Tilgungsplan-Rechner und der Sweep-Vorschlag Extra-Budget auf Schulden verteilen, füllen sie
+            zuerst die Lücke zu diesem Sparziel — bewährtes Prinzip aus der Schuldenberatung, damit die nächste
+            unerwartete Rechnung nicht wieder auf der Kreditkarte landet. Braucht ein gesetztes Sparziel oben, und
+            es kann immer nur ein Umschlag Notfallfonds sein — ein zuvor markierter wird automatisch abgewählt.
+          </p>
+          {errors.fields.is_emergency_fund && <FieldError id="emergency-fund-error" message={errors.fields.is_emergency_fund} />}
           <div className="form-row align-end">
             <div className="field">
               <label htmlFor="color">Farbe</label>

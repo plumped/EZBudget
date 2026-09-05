@@ -429,6 +429,56 @@ Zahlung würde also doppelt gezählt (Restschuld und Kontostand sinken zweimal).
   Sweep-Vorschlag) macht jetzt explizit klar: entweder hier erfassen ODER später
   importieren, nicht beides.
 
+### 5.23 "Schuldenfrei am ..." aufs Dashboard + Tilgungs-Meilensteine
+
+Für jemanden, der sich aus Schulden rausarbeitet, soll das Zieldatum + der
+Fortschritt das Allererste sein, was er beim Öffnen der App sieht — nicht erst nach
+einem Klick auf /debts.
+
+- `DashboardView` berechnet jetzt zusätzlich `debt_free_date` (via `simulate_payoff()`,
+  bewusst nur mit den Mindestraten/`extra_budget=0` — die pessimistischste, aber
+  garantierte Prognose ohne Zusatzzahlungen) und `overall_debt_progress_percent`
+  (Summe `paid_so_far` / Summe `principal` über **alle** je erfassten Schulden,
+  auch bereits komplett getilgte zählen ihren vollen Anteil mit). Beides erscheint
+  jetzt direkt in der Schulden-Karte auf dem Dashboard.
+- **Meilensteine** (25/50/75/100% einer einzelnen Schuld getilgt) sind bewusst
+  zustandsbehaftet umgesetzt statt live aus `progress_percent` berechnet: neues Feld
+  `Debt.last_milestone_reached` merkt sich den höchsten bereits gemeldeten
+  Meilenstein, damit dieselbe Meldung nicht bei jedem Dashboard-Aufruf erneut
+  auftaucht. `debts/services.py::check_new_milestones()` läuft bei jedem
+  Dashboard-Load (wie schon `accrue_monthly_interest()`), meldet nur wirklich neu
+  erreichte Meilensteine und aktualisiert dabei gleich den gespeicherten Stand.
+  Springt eine Zahlung über mehrere Schwellen auf einmal, wird nur der höchste neu
+  erreichte gemeldet. Eine komplett getilgte Schuld (`is_paid_off=True`) wird dabei
+  nicht ausgeschlossen — sonst würde der wichtigste Meilenstein (100%) verloren
+  gehen, genau in dem Moment, in dem die Schuld archiviert wird.
+- Frontend zeigt neue Meilensteine als Erfolgs-Toast beim Laden des Dashboards.
+
+### 5.24 Notfallfonds-Priorität vor Extra-Tilgung
+
+Bewährtes Prinzip aus der Schuldenberatung: erst einen kleinen Puffer ansparen,
+bevor man aggressiv Extra-Zahlungen auf Schulden macht — sonst landet man bei der
+nächsten unerwarteten Rechnung wieder auf der Kreditkarte.
+
+- Neues Feld `Category.is_emergency_fund` markiert einen Umschlag als Notfallfonds.
+  Rein opt-in — ohne markierten Umschlag ändert sich am bisherigen Verhalten nichts.
+  Es kann immer nur einer aktiv sein: `Category.save()` wählt einen zuvor markierten
+  automatisch ab, sobald ein neuer gesetzt wird (wie eine Radio-Auswahl). Braucht
+  zwingend ein gesetztes Sparziel (`target_amount`) — der Serializer lehnt
+  `is_emergency_fund=True` ohne Zielbetrag ab, sonst gäbe es keine Lücke, die zuerst
+  gefüllt werden müsste.
+- `debts/services.py::emergency_fund_status()` berechnet die Lücke zum Sparziel
+  (`target_amount - rollover_balance()`, nie negativ). Sowohl `simulate_payoff()`
+  als auch `allocate_extra_once()` (Sweep-Vorschlag) nehmen jetzt ein
+  `emergency_fund_gap`-Argument entgegen und füllen diese Lücke aus dem
+  Extra-Budget/Überschuss zuerst, bevor irgendetwas an Schulden geht — im
+  Tilgungsplan-Rechner über mehrere Monate hinweg als laufender Zustand
+  (`emergency_fund_total`, `emergency_fund_filled_date` im Ergebnis), im
+  Sweep-Vorschlag als einmaliger Abzug (`to_emergency_fund`).
+- Frontend: neue Checkbox "Das ist mein Notfallfonds" im Umschlag-Formular; die
+  Schulden-Seite zeigt einen Hinweis-Banner, solange der Fonds nicht voll ist, und
+  der Sweep-Vorschlag listet die Notfallfonds-Zuteilung vor den Schulden-Zeilen.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

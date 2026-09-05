@@ -13,6 +13,8 @@ class SimResult:
     debt_free_date: object = None
     reached_max: bool = False
     unallocated_extra: Decimal = Decimal("0")
+    emergency_fund_total: Decimal = Decimal("0")
+    emergency_fund_filled_date: object = None
 
 
 def _add_months(base_date, months):
@@ -21,7 +23,10 @@ def _add_months(base_date, months):
     return datetime.date(year, month, 1)
 
 
-def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_months=600, start_date=None):
+def simulate_payoff(
+    debts, strategy="avalanche", extra_budget=Decimal("0"), max_months=600, start_date=None,
+    emergency_fund_gap=Decimal("0"),
+):
     """
     debts: iterable of dicts {id, name, balance, rate, minimum, max_extra}
         rate = jährlicher Zinssatz in Prozent (z.B. 8.5)
@@ -30,6 +35,11 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
             Ratenkredit mit fixem Tilgungsplan). Optional, für Rückwärtskompatibilität.
     strategy: 'avalanche' (höchster Zins zuerst) oder 'snowball' (kleinste Restschuld zuerst)
     extra_budget: zusätzlicher monatlicher Betrag OBERHALB der Summe aller Mindestraten
+    emergency_fund_gap: fehlender Betrag bis zum Notfallfonds-Sparziel (siehe
+        emergency_fund_status()) — bewährtes Prinzip aus der Schuldenberatung: bevor
+        Extra-Budget auf Schulden verteilt wird, füllt es zuerst diese Lücke, damit die
+        nächste unerwartete Rechnung nicht wieder auf der Kreditkarte landet. 0 (Default)
+        = kein Notfallfonds markiert oder bereits voll, verhält sich dann wie zuvor.
     """
     snap = []
     for d in debts:
@@ -70,6 +80,9 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     # das ist der eigentliche Kern von Avalanche/Snowball, nicht nur die Priorität.
     released_minimums = Decimal("0")
     unallocated_extra = Decimal("0")
+    emergency_fund_remaining = Decimal(emergency_fund_gap)
+    emergency_fund_total = Decimal("0")
+    emergency_fund_filled_date = None
 
     while any(d["balance"] > 0 for d in snap) and months < max_months:
         months += 1
@@ -97,6 +110,18 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
         # mehr offen ist (normales Ende der Tilgung), ist dagegen kein "blockierter" Betrag —
         # das war schon vor max_extra so und ist einfach frei gewordenes Geld, keine Auffälligkeit.
         pool = Decimal(extra_budget) + released_minimums
+
+        # Notfallfonds-Priorität: bevor irgendetwas an Schulden geht, füllt das
+        # Restbudget zuerst die Lücke zum Sparziel des Notfallfonds (falls markiert
+        # und noch nicht voll) — siehe emergency_fund_gap oben.
+        if emergency_fund_remaining > 0 and pool > 0:
+            diverted = min(pool, emergency_fund_remaining)
+            pool -= diverted
+            emergency_fund_remaining -= diverted
+            emergency_fund_total += diverted
+            if emergency_fund_remaining <= 0 and emergency_fund_filled_date is None and start_date is not None:
+                emergency_fund_filled_date = _add_months(start_date, months)
+
         ordered = sorted([d for d in snap if d["balance"] > 0], key=sort_key)
         total_capacity = sum((d["balance"] for d in ordered), Decimal("0"))
         natural_leftover = max(Decimal("0"), pool - total_capacity)
@@ -137,6 +162,8 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
         debt_free_date=debt_free_date,
         reached_max=months >= max_months,
         unallocated_extra=unallocated_extra,
+        emergency_fund_total=emergency_fund_total,
+        emergency_fund_filled_date=emergency_fund_filled_date,
     )
 
 
@@ -144,9 +171,10 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
 class SweepAllocation:
     allocations: list  # [{"id", "name", "amount": Decimal}]
     unallocated: Decimal = Decimal("0")
+    to_emergency_fund: Decimal = Decimal("0")
 
 
-def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0")):
+def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0"), emergency_fund_gap=Decimal("0")):
     """Verteilt einen EINMALIGEN Extra-Betrag (z.B. übriges Monatsbudget) nach
     Priorität auf die aktuellen Restschulden — dieselbe Kappungs-/Rollover-Logik wie
     Schritt 3 in simulate_payoff() (siehe dort für die ausführliche Begründung),
@@ -154,10 +182,18 @@ def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0")):
     als eigenständige, einfachere Funktion statt geteiltem Code, um die bereits
     gut getestete Mehrmonatsschleife nicht anzufassen.
 
+    emergency_fund_gap: siehe simulate_payoff() — wird vor jeder Schuld zuerst bedient.
+
     Die App löst dabei KEINE echte Überweisung aus — sie kann nur vorschlagen,
     wie sich ein Betrag verteilen würde, den der Nutzer selbst bei seiner Bank
     überweist und danach hier als Zahlung erfasst.
     """
+    pool = Decimal(extra_budget)
+    to_emergency_fund = Decimal("0")
+    if pool > 0 and emergency_fund_gap > 0:
+        to_emergency_fund = min(pool, Decimal(emergency_fund_gap))
+        pool -= to_emergency_fund
+
     snap = []
     for d in debts:
         balance = Decimal(d["balance"])
@@ -174,9 +210,10 @@ def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0")):
             }
         )
 
-    pool = Decimal(extra_budget)
     if pool <= 0 or not snap:
-        return SweepAllocation(allocations=[], unallocated=max(pool, Decimal("0")))
+        return SweepAllocation(
+            allocations=[], unallocated=max(pool, Decimal("0")), to_emergency_fund=to_emergency_fund
+        )
 
     # Anders als in simulate_payoff() zählt hier JEDER Rest als "nicht zugeteilt" —
     # ob wegen einer Kappungsgrenze oder schlicht, weil die Restschuld insgesamt
@@ -197,7 +234,7 @@ def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0")):
         if pay > 0:
             allocations.append({"id": d["id"], "name": d["name"], "amount": pay})
         pool -= pay
-    return SweepAllocation(allocations=allocations, unallocated=pool)
+    return SweepAllocation(allocations=allocations, unallocated=pool, to_emergency_fund=to_emergency_fund)
 
 
 def eligible_envelope_surplus(year, month):
@@ -222,6 +259,27 @@ def eligible_envelope_surplus(year, month):
             sources.append({"id": c.id, "name": c.name, "amount": balance})
             total += balance
     return total, sources
+
+
+def emergency_fund_status(year, month):
+    """Der als Notfallfonds markierte Umschlag (falls vorhanden) und wie weit er
+    noch von seinem Sparziel entfernt ist — bewährtes Prinzip aus der
+    Schuldenberatung: erst einen Puffer aufbauen, bevor Extra-Budget aggressiv auf
+    Schulden verteilt wird, sonst landet die nächste unerwartete Rechnung wieder
+    auf der Kreditkarte.
+
+    Gibt (category_or_None, target, current, gap) zurück. Ohne markierten
+    Notfallfonds (oder ohne gesetztes Sparziel) ist gap immer 0 — die Priorisierung
+    ist rein opt-in und ändert für alle anderen nichts am bisherigen Verhalten.
+    """
+    from core.models import Category
+
+    fund = Category.objects.filter(is_emergency_fund=True, is_archived=False).first()
+    if fund is None or not fund.target_amount:
+        return None, Decimal("0"), Decimal("0"), Decimal("0")
+    current = fund.rollover_balance(year, month)
+    gap = max(Decimal("0"), fund.target_amount - current)
+    return fund, fund.target_amount, current, gap
 
 
 SWEEP_WINDOW_DAYS = 5
@@ -300,3 +358,35 @@ def accrue_monthly_interest(today=None):
         accrued.append(debt)
 
     return accrued
+
+
+MILESTONE_THRESHOLDS = [25, 50, 75, 100]
+
+
+def check_new_milestones():
+    """Meldet neu erreichte Tilgungs-Meilensteine (25/50/75/100%) seit dem letzten
+    Aufruf — als kleine Motivations-Momente auf dem Dashboard.
+
+    Bewusst zustandsbehaftet (Debt.last_milestone_reached), nicht einfach live aus
+    progress_percent berechnet: sonst würde dieselbe Meldung bei jedem
+    Dashboard-Aufruf erneut erscheinen, solange die Schuld über der Schwelle bleibt.
+    Springt eine Zahlung über mehrere Schwellen auf einmal (z.B. von 20% direkt auf
+    100%), wird nur der höchste neu erreichte Meilenstein gemeldet — das ist der
+    einzige, der für den Nutzer gerade relevant ist.
+
+    Gibt eine Liste von {"debt_id", "debt_name", "milestone"} zurück, eine pro
+    Schuld mit neu erreichtem Meilenstein seit dem letzten Aufruf.
+    """
+    from .models import Debt
+
+    newly_reached = []
+    for debt in Debt.objects.all():
+        reached = [m for m in MILESTONE_THRESHOLDS if debt.progress_percent >= m]
+        if not reached:
+            continue
+        highest = reached[-1]
+        if highest > debt.last_milestone_reached:
+            newly_reached.append({"debt_id": debt.id, "debt_name": debt.name, "milestone": highest})
+            Debt.objects.filter(pk=debt.id).update(last_milestone_reached=highest)
+
+    return newly_reached
