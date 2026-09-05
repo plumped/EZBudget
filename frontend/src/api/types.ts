@@ -123,6 +123,8 @@ export interface PayoffResult {
 
 export interface SweepProposal {
   strategy: PayoffStrategy
+  in_window: boolean
+  days_remaining: number
   total_available: string
   sources: { id: number; name: string; amount: string }[]
   allocations: { id: number; name: string; amount: string }[]

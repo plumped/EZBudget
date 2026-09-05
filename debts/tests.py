@@ -7,7 +7,13 @@ from django.test import TestCase
 from core.models import Account, Category, Transaction
 
 from .models import Debt
-from .services import accrue_monthly_interest, allocate_extra_once, eligible_envelope_surplus, simulate_payoff
+from .services import (
+    accrue_monthly_interest,
+    allocate_extra_once,
+    eligible_envelope_surplus,
+    simulate_payoff,
+    sweep_window_status,
+)
 
 
 class SimulatePayoffTests(TestCase):
@@ -253,6 +259,39 @@ class EligibleEnvelopeSurplusTests(TestCase):
         total, sources = eligible_envelope_surplus(today.year, today.month)
         self.assertEqual(total, Decimal("0"))
         self.assertEqual(sources, [])
+
+
+class SweepWindowStatusTests(TestCase):
+    """Der Sweep-Vorschlag darf nicht mitten im Monat auftauchen: ein Umschlag-
+    Übertrag wächst im Lauf des Monats einfach an, weil noch nicht alles
+    ausgegeben wurde — das ist am 5. Tag kein "Überschuss", sondern Geld, das
+    diesen Monat noch gebraucht wird. Sinnvoll ist der Vorschlag nur in den
+    letzten SWEEP_WINDOW_DAYS Tagen des Budget-Monats."""
+
+    def test_last_day_of_month_is_in_window(self):
+        year, month, days_remaining, in_window = sweep_window_status(date(2026, 9, 30), 1)
+        self.assertEqual((year, month), (2026, 9))
+        self.assertEqual(days_remaining, 0)
+        self.assertTrue(in_window)
+
+    def test_exactly_five_days_remaining_is_in_window(self):
+        _, _, days_remaining, in_window = sweep_window_status(date(2026, 9, 25), 1)
+        self.assertEqual(days_remaining, 5)
+        self.assertTrue(in_window)
+
+    def test_six_days_remaining_is_not_in_window(self):
+        _, _, days_remaining, in_window = sweep_window_status(date(2026, 9, 24), 1)
+        self.assertEqual(days_remaining, 6)
+        self.assertFalse(in_window)
+
+    def test_respects_custom_month_start_day(self):
+        """Budget-Monat läuft hier vom 25. bis zum 24. des Folgemonats — das
+        Zeitfenster muss sich am tatsächlichen Periodenende orientieren, nicht
+        am Ende des Kalendermonats."""
+        year, month, days_remaining, in_window = sweep_window_status(date(2026, 9, 20), 25)
+        self.assertEqual((year, month), (2026, 8))
+        self.assertEqual(days_remaining, 4)
+        self.assertTrue(in_window)
 
 
 class DebtCategoryLinkTests(TestCase):
@@ -501,6 +540,15 @@ class SweepProposalApiTests(TestCase):
         data = response.json()
         self.assertEqual(data["total_available"], "0.00")
         self.assertEqual(data["allocations"], [])
+
+    def test_sweep_proposal_reports_window_status_matching_service(self):
+        from core.budget_month import get_month_start_day
+
+        response = self.client.get("/api/debts/sweep-proposal/")
+        data = response.json()
+        _, _, expected_days, expected_in_window = sweep_window_status(date.today(), get_month_start_day())
+        self.assertEqual(data["days_remaining"], expected_days)
+        self.assertEqual(data["in_window"], expected_in_window)
 
     def test_sweep_proposal_rejects_anonymous_user(self):
         self.client.logout()

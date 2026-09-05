@@ -11,7 +11,7 @@ from core.serializers import TransactionSerializer
 
 from .models import Debt
 from .serializers import DebtSerializer
-from .services import allocate_extra_once, eligible_envelope_surplus, simulate_payoff
+from .services import allocate_extra_once, eligible_envelope_surplus, simulate_payoff, sweep_window_status
 
 
 class DebtViewSet(viewsets.ModelViewSet):
@@ -146,13 +146,13 @@ class SweepProposalView(APIView):
     """
 
     def get(self, request):
-        from core.budget_month import budget_period_for_date, get_month_start_day
+        from core.budget_month import get_month_start_day
 
         strategy = request.query_params.get("strategy", "avalanche")
         if strategy not in ("avalanche", "snowball"):
             strategy = "avalanche"
 
-        year, month = budget_period_for_date(date.today(), get_month_start_day())
+        year, month, days_remaining, in_window = sweep_window_status(date.today(), get_month_start_day())
         total_available, sources = eligible_envelope_surplus(year, month)
 
         debts = Debt.objects.filter(is_paid_off=False)
@@ -171,6 +171,8 @@ class SweepProposalView(APIView):
         return Response(
             {
                 "strategy": strategy,
+                "in_window": in_window,
+                "days_remaining": days_remaining,
                 "total_available": str(total_available.quantize(Decimal("0.01"))),
                 "sources": [
                     {"id": s["id"], "name": s["name"], "amount": str(s["amount"].quantize(Decimal("0.01")))}

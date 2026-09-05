@@ -224,6 +224,30 @@ def eligible_envelope_surplus(year, month):
     return total, sources
 
 
+SWEEP_WINDOW_DAYS = 5
+
+
+def sweep_window_status(today, month_start_day):
+    """Ob der Monatsende-Sweep-Vorschlag heute sinnvoll anzeigbar ist.
+
+    Umschlag-Überträge (rollover_balance) wachsen im Laufe des Budget-Monats
+    einfach an, weil noch nicht alles ausgegeben wurde — das ist am 5. Tag des
+    Monats kein "Überschuss", sondern Geld, das man diesen Monat noch braucht.
+    Der Vorschlag ist deshalb nur in den letzten SWEEP_WINDOW_DAYS Tagen des
+    Budget-Monats sinnvoll, wenn ein verbleibender Übertrag tatsächlich eher
+    ungenutztes Budget ist statt einfach "noch nicht ausgegeben".
+
+    Gibt (year, month, days_remaining, in_window) zurück — year/month ist der
+    Budget-Monat, in dem `today` liegt.
+    """
+    from core.budget_month import budget_period_bounds, budget_period_for_date
+
+    year, month = budget_period_for_date(today, month_start_day)
+    _, period_end = budget_period_bounds(year, month, month_start_day)
+    days_remaining = (period_end - today).days
+    return year, month, days_remaining, days_remaining <= SWEEP_WINDOW_DAYS
+
+
 def accrue_monthly_interest(today=None):
     """Bucht den monatlichen Zins EINMAL pro Kalendermonat und Schuld — echt auf
     current_balance, nicht nur in der simulate_payoff()-Projektion oben.

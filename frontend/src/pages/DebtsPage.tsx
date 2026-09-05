@@ -140,7 +140,7 @@ export function DebtsPage() {
             </div>
           </div>
 
-          {proposal && parseFloat(proposal.total_available) > 0 && (
+          {proposal && proposal.in_window && parseFloat(proposal.total_available) > 0 && (
             <div className="card">
               <div className="hero-label">
                 <Sparkle size={16} weight="fill" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />

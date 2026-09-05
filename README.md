@@ -398,6 +398,14 @@ siehe 5.20) auf die offenen Schulden verteilen liesse.
   **nachdem** die Überweisung tatsächlich bei der Bank gemacht wurde. Ein Button
   übernimmt den Gesamtbetrag zusätzlich als Extra-Budget in den bestehenden
   Tilgungsplan-Rechner, um den Zinseffekt direkt sichtbar zu machen.
+- **Zeitfenster**: `rollover_balance()` wächst im Lauf des Monats einfach an, weil
+  noch nicht alles ausgegeben wurde — am 5. Tag des Monats wäre ein angezeigter
+  "Überschuss" meist nur Geld, das man diesen Monat noch braucht, kein echter Rest.
+  `debts/services.py::sweep_window_status()` berechnet deshalb, ob `heute` in den
+  letzten `SWEEP_WINDOW_DAYS` (5) Tagen des aktuellen Budget-Monats liegt — nur dann
+  liefert die Karte einen `in_window: true`-Flag, den das Frontend zum Anzeigen
+  nutzt. Ausserhalb des Fensters bleibt die Karte komplett unsichtbar, statt eine
+  verfrühte, potenziell irreführende Zahl zu zeigen.
 
 ### 5.22 Weiche Duplikat-Erkennung beim CAMT.053-Import (Datum + Betrag)
 
