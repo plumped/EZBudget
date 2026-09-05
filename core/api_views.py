@@ -242,6 +242,10 @@ class DashboardView(APIView):
     def get(self, request):
         generated = generate_due_recurring()
 
+        from debts.services import accrue_monthly_interest
+
+        accrue_monthly_interest()
+
         year, month = _requested_year_month(request)
         first, last, days_in_month, (prev_year, prev_month), (next_year, next_month) = _month_bounds(year, month)
 

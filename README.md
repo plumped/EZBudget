@@ -320,6 +320,35 @@ Umschlag-Filter auf der Buchungen-Seite hat dafür eine neue Option "Ohne Umschl
 (`category=none` in `TransactionViewSet.get_queryset()`), die auch per Deep-Link aus der
 Warnung vorausgewählt wird.
 
+### 5.19 Kreditkarten/laufende Kreditlinien als Schuld mit Konto-Verknüpfung
+
+Eine Schuld lässt sich optional direkt mit einem Konto verknüpfen (`Debt.account`,
+z.B. dem Kontotyp "Kreditkarte") — gedacht für eine laufende Kreditlinie, bei der
+zusätzlich zu Zahlungen auch wieder neue Ausgaben dazukommen, statt nur getilgt zu
+werden:
+
+- **Ausgaben**: jede normale, mit einem echten Umschlag kategorisierte Buchung auf dem
+  verknüpften Konto erhöht die Restschuld automatisch — Budget-Tracking bleibt dabei
+  voll erhalten (Lebensmittel bleibt Lebensmittel, egal mit welcher Karte bezahlt).
+- **Zahlungen**: ein normaler Transfer auf das verknüpfte Konto senkt die Restschuld
+  automatisch; der manuelle "Zahlung erfassen"-Kurzweg (weiterhin der Standardweg für
+  Schulden ohne Kontoverknüpfung, z.B. ein Privatdarlehen) ist für kontoverknüpfte
+  Schulden gesperrt, um zwei parallele Buchungswege zu vermeiden.
+- **Zins**: wird jetzt echt und automatisch verbucht statt nur in der
+  Tilgungsplan-Simulation berücksichtigt — einmal pro Kalendermonat, ausgelöst beim
+  Laden des Dashboards (`accrue_monthly_interest()` in `debts/services.py`, zusätzlich
+  als Management-Command `accrue_debt_interest` für Cron). Bei einer Konto-Verknüpfung
+  als echte, sichtbare Buchung auf diesem Konto (Duplikatschutz über `import_ref`, damit
+  eine gelöschte Zinsbuchung im selben Monat erneut buchbar bleibt); ohne Verknüpfung
+  direkt auf `current_balance` (Duplikatschutz über `last_interest_year`/`-month`, da
+  keine echte Kontobewegung stattfindet).
+
+`Transaction._linked_debts_with_deltas()` (`core/models.py`) verallgemeinert dafür die
+bisherige, rein umschlagbasierte Verknüpfung: eine Buchung kann jetzt sowohl über ihren
+Umschlag als auch über ihr Konto eine Schuld beeinflussen (mit invertiertem Vorzeichen,
+da eine Ausgabe auf dem Konto die Restschuld erhöht statt senkt) — betrifft
+ausnahmsweise beides dieselbe Schuld, zählt nur der Konto-Weg.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

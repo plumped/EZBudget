@@ -7,7 +7,7 @@ from django.test import TestCase
 from core.models import Account, Category, Transaction
 
 from .models import Debt
-from .services import simulate_payoff
+from .services import accrue_monthly_interest, simulate_payoff
 
 
 class SimulatePayoffTests(TestCase):
@@ -295,3 +295,228 @@ class PayoffApiTests(TestCase):
         self.client.logout()
         response = self.client.get("/api/debts/payoff/")
         self.assertEqual(response.status_code, 403)
+
+
+class DebtAccountLinkTests(TestCase):
+    """Eine Schuld kann direkt mit einem Konto verknüpft werden (z.B. Kreditkarte) —
+    dann verändert JEDE Buchung auf diesem Konto automatisch die Restschuld, nicht nur
+    Buchungen auf dem dedizierten Umschlag (siehe DebtCategoryLinkTests oben)."""
+
+    def setUp(self):
+        self.card = Account.objects.create(name="Kreditkarte", account_type=Account.AccountType.CREDIT)
+        self.debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("18"), minimum_payment=Decimal("50"), account=self.card,
+        )
+
+    def test_purchase_on_linked_account_increases_balance(self):
+        category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE)
+        Transaction.objects.create(
+            account=self.card, category=category, date=date(2026, 9, 5), amount=Decimal("-80"),
+        )
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("580"))
+
+    def test_credit_to_linked_account_decreases_balance(self):
+        Transaction.objects.create(account=self.card, date=date(2026, 9, 5), amount=Decimal("200"))
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("300"))
+
+    def test_transaction_on_linked_account_and_its_own_category_counts_once(self):
+        Transaction.objects.create(
+            account=self.card, category=self.debt.category, date=date(2026, 9, 5), amount=Decimal("-50"),
+        )
+        self.debt.refresh_from_db()
+        # Nur der Konto-Weg zählt (Delta +50), nicht zusätzlich der Umschlag-Weg (Delta -50).
+        self.assertEqual(self.debt.current_balance, Decimal("550"))
+
+    def test_editing_amount_on_linked_account_rebalances_debt(self):
+        txn = Transaction.objects.create(account=self.card, date=date(2026, 9, 5), amount=Decimal("-80"))
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("580"))
+        txn.amount = Decimal("-120")
+        txn.save()
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("620"))
+
+    def test_deleting_transaction_on_linked_account_reverses_balance(self):
+        txn = Transaction.objects.create(account=self.card, date=date(2026, 9, 5), amount=Decimal("-80"))
+        txn.delete()
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("500"))
+
+    def test_transfer_to_linked_card_account_reduces_debt(self):
+        checking = Account.objects.create(name="Girokonto", starting_balance=Decimal("1000"))
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        response = self.client.post(
+            "/api/transfers/",
+            {"from_account": checking.id, "to_account": self.card.id, "amount": "200", "date": "2026-09-05"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.debt.refresh_from_db()
+        self.assertEqual(self.debt.current_balance, Decimal("300"))
+
+
+class DebtInterestAccrualTests(TestCase):
+    """Der Zinssatz einer Schuld wird jetzt auch echt (nicht nur simuliert) einmal
+    pro Kalendermonat auf current_balance verbucht."""
+
+    def test_classic_debt_interest_directly_increases_balance(self):
+        debt = Debt.objects.create(
+            name="Privatdarlehen", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("12"), minimum_payment=Decimal("50"),
+        )
+        accrued = accrue_monthly_interest(today=date(2026, 9, 15))
+        debt.refresh_from_db()
+        self.assertEqual(len(accrued), 1)
+        self.assertEqual(debt.current_balance, Decimal("1010.00"))
+        self.assertEqual(debt.last_interest_year, 2026)
+        self.assertEqual(debt.last_interest_month, 9)
+
+    def test_classic_debt_interest_not_double_applied_same_month(self):
+        debt = Debt.objects.create(
+            name="Privatdarlehen", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("12"), minimum_payment=Decimal("50"),
+        )
+        accrue_monthly_interest(today=date(2026, 9, 5))
+        accrue_monthly_interest(today=date(2026, 9, 25))
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("1010.00"))
+
+    def test_classic_debt_interest_accrues_again_next_month(self):
+        debt = Debt.objects.create(
+            name="Privatdarlehen", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("12"), minimum_payment=Decimal("50"),
+        )
+        accrue_monthly_interest(today=date(2026, 9, 5))
+        accrue_monthly_interest(today=date(2026, 10, 5))
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("1020.10"))
+
+    def test_account_linked_debt_interest_posts_real_transaction(self):
+        card = Account.objects.create(name="Kreditkarte", account_type=Account.AccountType.CREDIT)
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("24"), minimum_payment=Decimal("50"), account=card,
+        )
+        accrue_monthly_interest(today=date(2026, 9, 15))
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("510.00"))
+        txn = Transaction.objects.get(account=card)
+        self.assertEqual(txn.amount, Decimal("-10.00"))
+        self.assertEqual(txn.import_ref, f"debt-interest-{debt.id}-2026-09")
+
+    def test_account_linked_debt_interest_not_double_applied_same_month(self):
+        card = Account.objects.create(name="Kreditkarte", account_type=Account.AccountType.CREDIT)
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("24"), minimum_payment=Decimal("50"), account=card,
+        )
+        accrue_monthly_interest(today=date(2026, 9, 5))
+        accrue_monthly_interest(today=date(2026, 9, 25))
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("510.00"))
+        self.assertEqual(Transaction.objects.filter(account=card).count(), 1)
+
+    def test_account_linked_debt_reaccrues_if_interest_transaction_deleted(self):
+        card = Account.objects.create(name="Kreditkarte", account_type=Account.AccountType.CREDIT)
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("24"), minimum_payment=Decimal("50"), account=card,
+        )
+        accrue_monthly_interest(today=date(2026, 9, 5))
+        for txn in Transaction.objects.filter(account=card):
+            txn.delete()
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("500"))
+        accrue_monthly_interest(today=date(2026, 9, 25))
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("510.00"))
+
+    def test_zero_interest_rate_does_not_create_noise(self):
+        debt = Debt.objects.create(
+            name="Zinslos", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        accrued = accrue_monthly_interest(today=date(2026, 9, 5))
+        debt.refresh_from_db()
+        self.assertEqual(accrued, [])
+        self.assertEqual(debt.current_balance, Decimal("1000"))
+
+    def test_paid_off_debt_is_skipped(self):
+        Debt.objects.create(
+            name="Getilgt", principal=Decimal("1000"), current_balance=Decimal("0"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("50"), is_paid_off=True,
+        )
+        accrued = accrue_monthly_interest(today=date(2026, 9, 5))
+        self.assertEqual(accrued, [])
+
+
+class DebtAccountLinkApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+        self.card = Account.objects.create(name="Kreditkarte", account_type=Account.AccountType.CREDIT)
+        self.checking = Account.objects.create(name="Girokonto", starting_balance=Decimal("1000"))
+
+    def test_create_debt_with_linked_account_via_api(self):
+        response = self.client.post(
+            "/api/debts/",
+            {
+                "name": "Kreditkarte", "principal": "500", "current_balance": "500",
+                "interest_rate": "18", "minimum_payment": "50", "account": self.card.id,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["account"], self.card.id)
+        self.assertEqual(response.json()["account_name"], "Kreditkarte")
+
+    def test_account_can_only_be_linked_to_one_debt(self):
+        Debt.objects.create(
+            name="Erste", principal=Decimal("100"), current_balance=Decimal("100"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("10"), account=self.card,
+        )
+        response = self.client.post(
+            "/api/debts/",
+            {
+                "name": "Zweite", "principal": "100", "current_balance": "100",
+                "interest_rate": "0", "minimum_payment": "10", "account": self.card.id,
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_manual_payment_endpoint_rejected_for_account_linked_debt(self):
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"), account=self.card,
+        )
+        response = self.client.post(
+            f"/api/debts/{debt.id}/payments/",
+            {"account": self.checking.id, "date": "2026-09-05", "amount": "100"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_payments_history_returns_linked_account_transactions(self):
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"), account=self.card,
+        )
+        Transaction.objects.create(account=self.card, date=date(2026, 9, 5), amount=Decimal("-40"))
+        response = self.client.get(f"/api/debts/{debt.id}/payments/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+    def test_dashboard_accrues_interest_automatically(self):
+        debt = Debt.objects.create(
+            name="Kreditkarte", principal=Decimal("500"), current_balance=Decimal("500"),
+            interest_rate=Decimal("24"), minimum_payment=Decimal("50"), account=self.card,
+        )
+        response = self.client.get("/api/dashboard/")
+        self.assertEqual(response.status_code, 200)
+        debt.refresh_from_db()
+        self.assertEqual(debt.current_balance, Decimal("510.00"))

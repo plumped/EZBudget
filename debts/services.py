@@ -1,7 +1,7 @@
 """Schulden-Tilgungsplan: Avalanche- und Snowball-Strategie."""
 import datetime
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 @dataclass
@@ -119,3 +119,57 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
         debt_free_date=debt_free_date,
         reached_max=months >= max_months,
     )
+
+
+def accrue_monthly_interest(today=None):
+    """Bucht den monatlichen Zins EINMAL pro Kalendermonat und Schuld — echt auf
+    current_balance, nicht nur in der simulate_payoff()-Projektion oben.
+
+    Bei einer kontoverknüpften Schuld (z.B. Kreditkarte, siehe Debt.account) als
+    echte, sichtbare Buchung auf diesem Konto — current_balance folgt danach
+    automatisch über Transaction.save() (Transaction._linked_debt_via_account()).
+    Duplikatschutz dabei bewusst über die Existenz dieser Buchung (import_ref), nicht
+    nur über last_interest_year/-month: löscht jemand die Buchung wieder, muss der
+    Zins erneut buchbar sein, statt bis zum nächsten Monat zu fehlen.
+
+    Ohne Kontoverknüpfung (klassische Schuld ohne laufende Kreditlinie) direkt auf
+    current_balance, da keine echte Kontobewegung stattfindet — hier über
+    last_interest_year/-month dedupliziert.
+    """
+    from core.models import Transaction
+
+    from .models import Debt
+
+    today = today or datetime.date.today()
+    year, month = today.year, today.month
+    accrued = []
+
+    for debt in Debt.objects.filter(is_paid_off=False):
+        interest = (debt.current_balance * debt.interest_rate / Decimal("100") / Decimal("12")).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if interest <= 0:
+            continue
+
+        if debt.account_id:
+            ref = f"debt-interest-{debt.id}-{year}-{month:02d}"
+            if Transaction.objects.filter(import_ref=ref).exists():
+                continue
+            Transaction.objects.create(
+                account_id=debt.account_id,
+                date=today,
+                amount=-interest,
+                description=f"Zinsen {debt.name}",
+                import_ref=ref,
+            )
+            Debt.objects.filter(pk=debt.id).update(last_interest_year=year, last_interest_month=month)
+        else:
+            if (debt.last_interest_year, debt.last_interest_month) == (year, month):
+                continue
+            debt.current_balance = debt.current_balance + interest
+            debt.last_interest_year = year
+            debt.last_interest_month = month
+            debt.save(update_fields=["current_balance", "last_interest_year", "last_interest_month"])
+        accrued.append(debt)
+
+    return accrued

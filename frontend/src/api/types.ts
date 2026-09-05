@@ -96,6 +96,8 @@ export interface Debt {
   is_paid_off: boolean
   category: number | null
   category_name: string | null
+  account: number | null
+  account_name: string | null
   created_at: string
   paid_so_far: string
   progress_percent: number

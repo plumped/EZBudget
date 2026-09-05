@@ -1,4 +1,4 @@
-import { ArrowLeft, PencilSimple, Trash } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowsLeftRight, PencilSimple, Trash } from '@phosphor-icons/react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
@@ -139,63 +139,87 @@ export function DebtDetailPage() {
         </div>
       </div>
 
-      <div className="section-title">Zahlung erfassen</div>
-      <div className="card card-form">
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="account">Konto</label>
-            <select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-row">
-            <div className="field">
-              <label htmlFor="amount">Betrag</label>
-              <input
-                id="amount"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                placeholder="100"
-                aria-invalid={errors.fields.amount ? 'true' : undefined}
-                aria-describedby={errors.fields.amount ? 'amount-error' : undefined}
-              />
-              {errors.fields.amount && <FieldError id="amount-error" message={errors.fields.amount} />}
-            </div>
-            <div className="field">
-              <label htmlFor="date">Datum</label>
-              <input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                aria-invalid={errors.fields.date ? 'true' : undefined}
-                aria-describedby={errors.fields.date ? 'date-error' : undefined}
-              />
-              {errors.fields.date && <FieldError id="date-error" message={errors.fields.date} />}
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="note">Notiz (optional)</label>
-            <input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="z.B. Monatsrate" />
-          </div>
-          {errors.general && (
-            <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
-              {errors.general}
+      {debt.account ? (
+        <>
+          <div className="section-title">Konto verknüpft</div>
+          <div className="card">
+            <p className="helptext">
+              Diese Schuld ist mit dem Konto <strong>{debt.account_name}</strong> verknüpft — Käufe darauf erhöhen
+              die Restschuld automatisch, der Zins wird monatlich automatisch verbucht. Zahlungen laufen über einen
+              normalen Transfer auf dieses Konto.
             </p>
-          )}
-          <button type="submit" className="btn" disabled={submitting}>
-            Zahlung erfassen
-          </button>
-        </form>
-      </div>
+            <div className="form-actions">
+              <Link to={`/transactions/transfer?to=${debt.account}`} className="btn secondary">
+                <ArrowsLeftRight size={16} weight="bold" aria-hidden="true" />
+                Zahlung per Transfer erfassen
+              </Link>
+              <Link to={`/accounts/${debt.account}`} className="btn secondary">
+                Konto ansehen
+              </Link>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="section-title">Zahlung erfassen</div>
+          <div className="card card-form">
+            <form onSubmit={handleSubmit} noValidate>
+              <div className="field">
+                <label htmlFor="account">Konto</label>
+                <select id="account" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-row">
+                <div className="field">
+                  <label htmlFor="amount">Betrag</label>
+                  <input
+                    id="amount"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    required
+                    placeholder="100"
+                    aria-invalid={errors.fields.amount ? 'true' : undefined}
+                    aria-describedby={errors.fields.amount ? 'amount-error' : undefined}
+                  />
+                  {errors.fields.amount && <FieldError id="amount-error" message={errors.fields.amount} />}
+                </div>
+                <div className="field">
+                  <label htmlFor="date">Datum</label>
+                  <input
+                    id="date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                    aria-invalid={errors.fields.date ? 'true' : undefined}
+                    aria-describedby={errors.fields.date ? 'date-error' : undefined}
+                  />
+                  {errors.fields.date && <FieldError id="date-error" message={errors.fields.date} />}
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="note">Notiz (optional)</label>
+                <input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="z.B. Monatsrate" />
+              </div>
+              {errors.general && (
+                <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>
+                  {errors.general}
+                </p>
+              )}
+              <button type="submit" className="btn" disabled={submitting}>
+                Zahlung erfassen
+              </button>
+            </form>
+          </div>
+        </>
+      )}
 
-      <div className="section-title">Zahlungshistorie</div>
+      <div className="section-title">{debt.account ? 'Kontobewegungen' : 'Zahlungshistorie'}</div>
       <div className="table-wrap">
         <table className="data">
           <thead>

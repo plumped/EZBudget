@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
-import type { Debt } from '../api/types'
+import type { Account, Debt } from '../api/types'
 import { FieldError } from '../components/FieldError'
 import { Skeleton } from '../components/Skeleton'
 import { useToast } from '../context/ToastContext'
@@ -18,10 +18,16 @@ export function DebtFormPage() {
   const [currentBalance, setCurrentBalance] = useState('')
   const [interestRate, setInterestRate] = useState('')
   const [minimumPayment, setMinimumPayment] = useState('')
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [accountId, setAccountId] = useState('')
   const [loading, setLoading] = useState(!isNew)
   const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
   const [submitting, setSubmitting] = useState(false)
   const generalErrorRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => setAccounts(res.data))
+  }, [])
 
   useEffect(() => {
     if (isNew) return
@@ -33,9 +39,24 @@ export function DebtFormPage() {
       setCurrentBalance(d.current_balance)
       setInterestRate(d.interest_rate)
       setMinimumPayment(d.minimum_payment)
+      setAccountId(d.account ? String(d.account) : '')
       setLoading(false)
     })
   }, [id, isNew])
+
+  function handleAccountChange(value: string) {
+    setAccountId(value)
+    // Bei einer neuen, noch unausgefüllten Schuld die aktuelle Restschuld direkt vom
+    // gewählten Konto übernehmen (negativer Saldo = Schulden) — spart Abtippen und ist
+    // der naheliegende Startwert für eine laufende Kreditlinie wie eine Kreditkarte.
+    if (isNew && !currentBalance) {
+      const account = accounts.find((a) => String(a.id) === value)
+      if (account) {
+        const balance = parseFloat(account.balance)
+        if (balance < 0) setCurrentBalance((-balance).toFixed(2))
+      }
+    }
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -49,6 +70,7 @@ export function DebtFormPage() {
         current_balance: currentBalance,
         interest_rate: interestRate,
         minimum_payment: minimumPayment,
+        account: accountId ? Number(accountId) : null,
       }
       if (isNew) {
         await api.post('/debts/', payload)
@@ -161,6 +183,21 @@ export function DebtFormPage() {
                 <FieldError id="minimum-payment-error" message={errors.fields.minimum_payment} />
               )}
             </div>
+          </div>
+          <div className="field">
+            <label htmlFor="account">Verknüpftes Konto (optional)</label>
+            <select id="account" value={accountId} onChange={(e) => handleAccountChange(e.target.value)} aria-describedby="account-help">
+              <option value="">— keines, klassische Zahlung über Umschlag —</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <p className="helptext" id="account-help">
+              Bei einer laufenden Kreditlinie (z.B. Kreditkarte): Käufe auf diesem Konto erhöhen die Restschuld
+              automatisch, Zahlungen per Transfer senken sie — der Zins wird monatlich automatisch verbucht.
+            </p>
           </div>
           {errors.general && (
             <p className="error-text" role="alert" tabIndex={-1} ref={generalErrorRef}>

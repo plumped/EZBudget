@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Account } from '../api/types'
@@ -9,9 +9,11 @@ import { useToast } from '../context/ToastContext'
 export function TransferFormPage() {
   const navigate = useNavigate()
   const push = useToast()
+  const [searchParams] = useSearchParams()
+  const preselectedTo = searchParams.get('to')
   const [accounts, setAccounts] = useState<Account[]>([])
   const [fromAccount, setFromAccount] = useState('')
-  const [toAccount, setToAccount] = useState('')
+  const [toAccount, setToAccount] = useState(preselectedTo ?? '')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
@@ -22,11 +24,13 @@ export function TransferFormPage() {
   useEffect(() => {
     api.get<Account[]>('/accounts/', { params: { active_only: 1 } }).then((res) => {
       setAccounts(res.data)
-      if (res.data.length > 0) {
-        setFromAccount(String(res.data[0].id))
-        if (res.data.length > 1) setToAccount(String(res.data[1].id))
-      }
+      // Bei einer vorgegebenen Ziel-Konto-ID (z.B. Zahlung an eine verknüpfte Kreditkarte)
+      // als "Von" das erste andere Konto vorschlagen statt dasselbe zweimal.
+      const from = res.data.find((a) => String(a.id) !== preselectedTo) ?? res.data[0]
+      if (from) setFromAccount(String(from.id))
+      if (!preselectedTo && res.data.length > 1) setToAccount(String(res.data[1].id))
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSubmit(event: FormEvent) {

@@ -1,8 +1,9 @@
 from decimal import Decimal
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from core.models import Category
+from core.models import Account, Category
 
 
 class Debt(models.Model):
@@ -24,6 +25,23 @@ class Debt(models.Model):
         blank=True,
         related_name="debt",
         help_text="Automatisch angelegter Umschlag, über den Buchungen mit dieser Schuld verknüpft werden.",
+    )
+    account = models.OneToOneField(
+        Account,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="debt",
+        help_text=(
+            "Optional bei einer laufenden Kreditlinie (z.B. Kreditkarte): das Konto, dessen "
+            "Buchungen automatisch die Restschuld verändern — normale Ausgaben erhöhen sie, "
+            "Zahlungen (z.B. per Transfer) senken sie. Ohne Verknüpfung bleibt die klassische "
+            "manuelle Zahlung über den Umschlag der Weg, die Restschuld zu ändern."
+        ),
+    )
+    last_interest_year = models.PositiveIntegerField(null=True, blank=True)
+    last_interest_month = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(12)]
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

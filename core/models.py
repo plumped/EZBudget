@@ -266,8 +266,9 @@ class Transaction(models.Model):
     def is_transfer(self):
         return self.transfer_pair_id is not None
 
-    def _linked_debt(self):
-        """Die Schuld, deren Umschlag dieser Buchung zugeordnet ist (falls vorhanden).
+    def _linked_debt_via_category(self):
+        """Die Schuld, deren dedizierter Umschlag dieser Buchung zugeordnet ist —
+        die klassische manuelle Zahlung/Tilgung (falls vorhanden).
 
         Bewusst eine frische Query über die App-Registry statt self.category.debt:
         die Rückwärts-Relation wird von Django auf dem Category-Objekt gecacht, das
@@ -280,6 +281,33 @@ class Transaction(models.Model):
         Debt = apps.get_model("debts", "Debt")
         return Debt.objects.filter(category_id=self.category_id).first()
 
+    def _linked_debt_via_account(self):
+        """Die Schuld, die dieses Konto direkt als laufende Kreditlinie verknüpft hat
+        (z.B. eine Kreditkarte) — falls vorhanden. Anders als bei der Umschlag-
+        Verknüpfung zählt hier JEDE Buchung auf dem Konto, unabhängig vom Umschlag:
+        ganz normale, mit einem echten Umschlag kategorisierte Ausgaben erhöhen die
+        Restschuld, eine Gutschrift (z.B. ein Transfer zur Tilgung) verringert sie."""
+        if not self.account_id:
+            return None
+        Debt = apps.get_model("debts", "Debt")
+        return Debt.objects.filter(account_id=self.account_id).first()
+
+    def _linked_debts_with_deltas(self):
+        """[(debt, betrags_delta), ...] für alle Schulden, die diese Buchung betrifft.
+        Umschlag-Verknüpfung: Delta = Buchungsbetrag direkt (negativ = Zahlung senkt
+        die Restschuld). Konto-Verknüpfung: Delta = umgekehrtes Vorzeichen, da eine
+        Ausgabe auf dem Konto die Restschuld erhöht statt verringert. Betrifft
+        ausnahmsweise beides dieselbe Schuld, zählt nur der Konto-Weg, um sie nicht
+        doppelt zu verrechnen."""
+        results = {}
+        account_debt = self._linked_debt_via_account()
+        if account_debt is not None:
+            results[account_debt.id] = (account_debt, -self.amount)
+        category_debt = self._linked_debt_via_category()
+        if category_debt is not None and category_debt.id not in results:
+            results[category_debt.id] = (category_debt, self.amount)
+        return list(results.values())
+
     @staticmethod
     def _adjust_debt(debt, delta):
         new_balance = max(debt.current_balance + delta, Decimal("0"))
@@ -289,25 +317,27 @@ class Transaction(models.Model):
 
     def save(self, *args, **kwargs):
         # Vorherigen Stand VOR dem Schreiben laden, damit bei einer Änderung (nicht nur
-        # Neuanlage) der alte Beitrag zur verknüpften Schuld rückgängig gemacht werden
+        # Neuanlage) der alte Beitrag zu verknüpften Schulden rückgängig gemacht werden
         # kann, bevor der neue angewendet wird — deckt auch einen Wechsel des Umschlags
-        # weg von oder hin zu einer Schuld ab.
+        # oder Kontos weg von oder hin zu einer Schuld ab.
         previous = type(self).objects.filter(pk=self.pk).first() if self.pk else None
         super().save(*args, **kwargs)
-        if previous is not None and previous.category_id == self.category_id and previous.amount == self.amount:
+        if (
+            previous is not None
+            and previous.category_id == self.category_id
+            and previous.account_id == self.account_id
+            and previous.amount == self.amount
+        ):
             return
         if previous is not None:
-            old_debt = previous._linked_debt()
-            if old_debt is not None:
-                self._adjust_debt(old_debt, -previous.amount)
-        new_debt = self._linked_debt()
-        if new_debt is not None:
-            self._adjust_debt(new_debt, self.amount)
+            for debt, delta in previous._linked_debts_with_deltas():
+                self._adjust_debt(debt, -delta)
+        for debt, delta in self._linked_debts_with_deltas():
+            self._adjust_debt(debt, delta)
 
     def delete(self, *args, **kwargs):
-        debt = self._linked_debt()
-        if debt is not None:
-            self._adjust_debt(debt, -self.amount)
+        for debt, delta in self._linked_debts_with_deltas():
+            self._adjust_debt(debt, -delta)
         super().delete(*args, **kwargs)
 
 

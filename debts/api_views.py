@@ -26,15 +26,32 @@ class DebtViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get", "post"])
     def payments(self, request, pk=None):
-        """Zahlungshistorie einer Schuld = Buchungen auf ihrem verknüpften Umschlag.
+        """Zahlungshistorie einer Schuld.
 
-        Eine Zahlung hier ist eine Kurzform für "Buchung mit diesem Umschlag
-        erfassen": sie legt eine normale Transaction an (verringert also auch
-        den Kontostand), statt eine separate, unverknüpfte Zahlungstabelle zu
-        pflegen — Transaction.save() reduziert current_balance automatisch.
+        Ohne Kontoverknüpfung (klassische Schuld): Buchungen auf ihrem verknüpften
+        Umschlag. Eine Zahlung hier ist eine Kurzform für "Buchung mit diesem Umschlag
+        erfassen": sie legt eine normale Transaction an (verringert also auch den
+        Kontostand), statt eine separate, unverknüpfte Zahlungstabelle zu pflegen —
+        Transaction.save() reduziert current_balance automatisch.
+
+        Mit Kontoverknüpfung (z.B. Kreditkarte, siehe Debt.account): die komplette
+        Buchungshistorie dieses Kontos — Ausgaben und Zahlungen laufen dort ganz normal
+        (mit echten Umschlägen kategorisiert bzw. per Transfer), die Restschuld folgt
+        automatisch. Der manuelle Zahlungs-Kurzweg ist dafür gesperrt, um doppelte
+        Buchungswege zu vermeiden — Zahlungen laufen hier über einen normalen Transfer.
         """
         debt = self.get_object()
         if request.method == "POST":
+            if debt.account_id is not None:
+                return Response(
+                    {
+                        "detail": (
+                            "Diese Schuld ist mit einem Konto verknüpft — Zahlungen laufen über "
+                            "einen normalen Transfer auf dieses Konto, nicht über diesen Weg."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if debt.category_id is None:
                 return Response({"detail": "Schuld hat keinen verknüpften Umschlag."}, status=status.HTTP_400_BAD_REQUEST)
             try:
@@ -57,6 +74,9 @@ class DebtViewSet(viewsets.ModelViewSet):
                 {"debt": DebtSerializer(debt).data, "transaction": serializer.data},
                 status=status.HTTP_201_CREATED,
             )
+        if debt.account_id is not None:
+            transactions = Transaction.objects.filter(account_id=debt.account_id).order_by("-date", "-id")
+            return Response(TransactionSerializer(transactions, many=True).data)
         if debt.category_id is None:
             return Response([])
         transactions = Transaction.objects.filter(category_id=debt.category_id).order_by("-date", "-id")
