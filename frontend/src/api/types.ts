@@ -121,6 +121,14 @@ export interface PayoffResult {
   schedule: { month: number; date: string | null; total_balance: string }[]
 }
 
+export interface SweepProposal {
+  strategy: PayoffStrategy
+  total_available: string
+  sources: { id: number; name: string; amount: string }[]
+  allocations: { id: number; name: string; amount: string }[]
+  unallocated: string
+}
+
 export interface CategoryGroup {
   budgeted: string
   spent: string

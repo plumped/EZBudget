@@ -1,8 +1,8 @@
-import { ChartLineDown, PencilSimple, Plus, Warning } from '@phosphor-icons/react'
+import { ArrowRight, ChartLineDown, PencilSimple, Plus, Sparkle, Warning } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
-import type { Debt, PayoffResult, PayoffStrategy } from '../api/types'
+import type { Debt, PayoffResult, PayoffStrategy, SweepProposal } from '../api/types'
 import { EmptyState } from '../components/EmptyState'
 import { InfoTooltip } from '../components/InfoTooltip'
 import { PayoffChart } from '../components/PayoffChart'
@@ -15,15 +15,20 @@ export function DebtsPage() {
   const [strategy, setStrategy] = useState<PayoffStrategy>('avalanche')
   const [extra, setExtra] = useState('0')
   const [result, setResult] = useState<PayoffResult | null>(null)
+  const [proposal, setProposal] = useState<SweepProposal | null>(null)
   const [loading, setLoading] = useState(true)
 
   const loadDebts = useCallback(() => {
     return api.get<Debt[]>('/debts/', { params: { open_only: 1 } }).then((res) => setDebts(res.data))
   }, [])
 
+  const loadProposal = useCallback((s: PayoffStrategy) => {
+    return api.get<SweepProposal>('/debts/sweep-proposal/', { params: { strategy: s } }).then((res) => setProposal(res.data))
+  }, [])
+
   useEffect(() => {
     setLoading(true)
-    Promise.all([loadDebts(), loadPayoff(strategy, extra)]).finally(() => setLoading(false))
+    Promise.all([loadDebts(), loadPayoff(strategy, extra), loadProposal(strategy)]).finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -34,10 +39,17 @@ export function DebtsPage() {
   function handleStrategyChange(s: PayoffStrategy) {
     setStrategy(s)
     void loadPayoff(s, extra)
+    void loadProposal(s)
   }
 
   function handleExtraBlur() {
     void loadPayoff(strategy, extra)
+  }
+
+  function handleUseSurplusAsExtra() {
+    if (!proposal) return
+    setExtra(proposal.total_available)
+    void loadPayoff(strategy, proposal.total_available)
   }
 
   if (loading) {
@@ -127,6 +139,46 @@ export function DebtsPage() {
               </div>
             </div>
           </div>
+
+          {proposal && parseFloat(proposal.total_available) > 0 && (
+            <div className="card">
+              <div className="hero-label">
+                <Sparkle size={16} weight="fill" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />
+                Vorschlag: nicht ausgegebenes Budget zur Tilgung nutzen
+              </div>
+              <p className="helptext">
+                Diesen Monat sind {formatMoney(proposal.total_available)} aus nicht ausgegebenem Budget übrig (
+                {proposal.sources.map((s) => `${s.name}: ${formatMoney(s.amount)}`).join(', ')}). Die App überweist
+                nichts automatisch — überweise den Betrag zuerst selbst bei deiner Bank und trage die Zahlung danach
+                hier ein.
+              </p>
+              <ul className="sweep-allocations">
+                {proposal.allocations.map((a) => (
+                  <li key={a.id}>
+                    <span>
+                      {formatMoney(a.amount)} an <strong>{a.name}</strong>
+                    </span>
+                    <Link to={`/debts/${a.id}?amount=${a.amount}`} className="link-action">
+                      Zahlung erfassen
+                      <ArrowRight size={12} weight="bold" aria-hidden="true" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {parseFloat(proposal.unallocated) > 0 && (
+                <p className="helptext">
+                  {formatMoney(proposal.unallocated)} davon werden nicht vorgeschlagen — z.B. weil eine Schuld laut
+                  ihrer „Maximalen Zusatzzahlung" nicht mehr aufnehmen darf, oder weil weniger Restschuld offen ist
+                  als Überschuss vorhanden.
+                </p>
+              )}
+              <div className="form-actions">
+                <button type="button" className="btn secondary" onClick={handleUseSurplusAsExtra}>
+                  Als Extra-Budget in den Tilgungsplan übernehmen
+                </button>
+              </div>
+            </div>
+          )}
 
           {result && parseFloat(result.unallocated_extra) > 0 && (
             <div className="alert-banner warning">

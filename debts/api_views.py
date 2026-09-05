@@ -11,7 +11,7 @@ from core.serializers import TransactionSerializer
 
 from .models import Debt
 from .serializers import DebtSerializer
-from .services import simulate_payoff
+from .services import allocate_extra_once, eligible_envelope_surplus, simulate_payoff
 
 
 class DebtViewSet(viewsets.ModelViewSet):
@@ -131,5 +131,55 @@ class PayoffSimulationView(APIView):
                     }
                     for row in result.schedule
                 ],
+            }
+        )
+
+
+class SweepProposalView(APIView):
+    """Monatsende-Vorschlag: wie viel ungenutztes Umschlag-Budget könnte diesen
+    Monat zusätzlich zur Schuldentilgung verwendet werden, und wie würde sich das
+    nach der gewählten Strategie auf die offenen Schulden verteilen?
+
+    Löst KEINE echte Überweisung aus — die App bildet Buchungen nur ab, eine
+    tatsächliche Zahlung macht der Nutzer selbst bei seiner Bank und trägt sie
+    danach ganz normal über den bestehenden Zahlungsweg ein.
+    """
+
+    def get(self, request):
+        from core.budget_month import budget_period_for_date, get_month_start_day
+
+        strategy = request.query_params.get("strategy", "avalanche")
+        if strategy not in ("avalanche", "snowball"):
+            strategy = "avalanche"
+
+        year, month = budget_period_for_date(date.today(), get_month_start_day())
+        total_available, sources = eligible_envelope_surplus(year, month)
+
+        debts = Debt.objects.filter(is_paid_off=False)
+        debt_dicts = [
+            {
+                "id": d.id,
+                "name": d.name,
+                "balance": d.current_balance,
+                "rate": d.interest_rate,
+                "max_extra": d.max_extra_payment,
+            }
+            for d in debts
+        ]
+        result = allocate_extra_once(debt_dicts, strategy=strategy, extra_budget=total_available)
+
+        return Response(
+            {
+                "strategy": strategy,
+                "total_available": str(total_available.quantize(Decimal("0.01"))),
+                "sources": [
+                    {"id": s["id"], "name": s["name"], "amount": str(s["amount"].quantize(Decimal("0.01")))}
+                    for s in sources
+                ],
+                "allocations": [
+                    {"id": a["id"], "name": a["name"], "amount": str(a["amount"].quantize(Decimal("0.01")))}
+                    for a in result.allocations
+                ],
+                "unallocated": str(result.unallocated.quantize(Decimal("0.01"))),
             }
         )

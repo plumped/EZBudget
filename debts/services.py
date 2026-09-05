@@ -140,6 +140,90 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     )
 
 
+@dataclass
+class SweepAllocation:
+    allocations: list  # [{"id", "name", "amount": Decimal}]
+    unallocated: Decimal = Decimal("0")
+
+
+def allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0")):
+    """Verteilt einen EINMALIGEN Extra-Betrag (z.B. übriges Monatsbudget) nach
+    Priorität auf die aktuellen Restschulden — dieselbe Kappungs-/Rollover-Logik wie
+    Schritt 3 in simulate_payoff() (siehe dort für die ausführliche Begründung),
+    hier aber für einen einzelnen Moment statt eine Mehrmonatssimulation, bewusst
+    als eigenständige, einfachere Funktion statt geteiltem Code, um die bereits
+    gut getestete Mehrmonatsschleife nicht anzufassen.
+
+    Die App löst dabei KEINE echte Überweisung aus — sie kann nur vorschlagen,
+    wie sich ein Betrag verteilen würde, den der Nutzer selbst bei seiner Bank
+    überweist und danach hier als Zahlung erfasst.
+    """
+    snap = []
+    for d in debts:
+        balance = Decimal(d["balance"])
+        if balance <= 0:
+            continue
+        max_extra = d.get("max_extra")
+        snap.append(
+            {
+                "id": d["id"],
+                "name": d["name"],
+                "balance": balance,
+                "rate": Decimal(d["rate"]),
+                "max_extra": Decimal(max_extra) if max_extra is not None else None,
+            }
+        )
+
+    pool = Decimal(extra_budget)
+    if pool <= 0 or not snap:
+        return SweepAllocation(allocations=[], unallocated=max(pool, Decimal("0")))
+
+    # Anders als in simulate_payoff() zählt hier JEDER Rest als "nicht zugeteilt" —
+    # ob wegen einer Kappungsgrenze oder schlicht, weil die Restschuld insgesamt
+    # kleiner ist als der verfügbare Betrag (dann ist das keine Auffälligkeit,
+    # sondern schlicht mehr Überschuss, als aktuell gebraucht wird). Für einen
+    # einzelnen Verteilungsvorschlag ist diese Unterscheidung nicht relevant — der
+    # Nutzer soll so oder so sehen, wie viel des Überschusses nicht Teil des
+    # Vorschlags ist.
+    sort_key = (lambda d: d["balance"]) if strategy == "snowball" else (lambda d: -d["rate"])
+    ordered = sorted(snap, key=sort_key)
+
+    allocations = []
+    for d in ordered:
+        if pool <= 0:
+            break
+        cap = pool if d["max_extra"] is None else min(pool, d["max_extra"])
+        pay = min(pool, d["balance"], cap)
+        if pay > 0:
+            allocations.append({"id": d["id"], "name": d["name"], "amount": pay})
+        pool -= pay
+    return SweepAllocation(allocations=allocations, unallocated=pool)
+
+
+def eligible_envelope_surplus(year, month):
+    """Positiver Übertrag aus Umschlägen, der sich theoretisch für eine
+    Zusatztilgung nutzen liesse — alle nicht archivierten Umschläge ausser
+    Einnahmen, Schulden-Umschlägen selbst und Umschlägen mit eigenem Sparziel
+    (target_amount), die bewusst für etwas anderes zurückgelegt werden. Nur der
+    POSITIVE Übertrag zählt; ein überzogener Umschlag mindert das Ergebnis nicht.
+
+    Gibt (total, sources) zurück, sources = [{"id", "name", "amount": Decimal}].
+    """
+    from core.models import Category
+
+    categories = Category.objects.filter(is_archived=False, target_amount__isnull=True).exclude(
+        kind__in=[Category.Kind.DEBT, Category.Kind.INCOME]
+    )
+    sources = []
+    total = Decimal("0")
+    for c in categories:
+        balance = c.rollover_balance(year, month)
+        if balance > 0:
+            sources.append({"id": c.id, "name": c.name, "amount": balance})
+            total += balance
+    return total, sources
+
+
 def accrue_monthly_interest(today=None):
     """Bucht den monatlichen Zins EINMAL pro Kalendermonat und Schuld — echt auf
     current_balance, nicht nur in der simulate_payoff()-Projektion oben.

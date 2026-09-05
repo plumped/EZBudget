@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowsLeftRight, PencilSimple, Trash } from '@phosphor-icons/react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api/client'
 import { extractErrorMessage, extractFieldErrors, type FieldErrors } from '../api/errors'
 import type { Account, Debt, Transaction } from '../api/types'
@@ -14,12 +14,14 @@ export function DebtDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const push = useToast()
+  const [searchParams] = useSearchParams()
+  const prefilledAmount = searchParams.get('amount')
   const [debt, setDebt] = useState<Debt | null>(null)
   const [payments, setPayments] = useState<Transaction[]>([])
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
   const [accountId, setAccountId] = useState('')
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(prefilledAmount ?? '')
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
   const [errors, setErrors] = useState<FieldErrors>({ fields: {} })
@@ -169,6 +171,12 @@ export function DebtDetailPage() {
         <>
           <div className="section-title">Zahlung erfassen</div>
           <div className="card card-form">
+            {prefilledAmount && (
+              <p className="helptext">
+                Vorgeschlagener Betrag aus dem Tilgungsplan-Vorschlag. Trage die Zahlung erst ein, nachdem du sie
+                selbst bei deiner Bank überwiesen hast — die App löst keine echte Überweisung aus.
+              </p>
+            )}
             <form onSubmit={handleSubmit} noValidate>
               <div className="field">
                 <label htmlFor="account">Konto</label>

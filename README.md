@@ -372,6 +372,33 @@ berücksichtigt das bei der monatlichen Verteilung des Extra-Budgets:
   Monat, wenn alle Schulden bereits vollständig getilgt sind — das ist kein blockierter
   Betrag, sondern schlicht frei gewordenes Budget.
 
+### 5.21 Monatsende-Sweep-Vorschlag: nicht ausgegebenes Budget zur Tilgung nutzen
+
+EZBudget ist ein reines Abbild der eigenen Finanzen — die App löst selbst keine
+Überweisung aus, das bleibt immer Sache des Nutzers bei seiner Bank. Der
+Sweep-Vorschlag hilft trotzdem beim schnelleren Schuldenabbau: Er zeigt, wie viel
+Budget diesen Monat nicht ausgegeben wurde und wie sich dieser Betrag nach der
+gewählten Strategie (Avalanche/Snowball, unter Beachtung von `max_extra_payment`,
+siehe 5.20) auf die offenen Schulden verteilen liesse.
+
+- `debts/services.py::eligible_envelope_surplus()` summiert den positiven
+  `rollover_balance()` aller nicht archivierten Umschläge ausser Einnahmen,
+  Schulden-Umschlägen selbst und Umschlägen mit eigenem Sparziel (`target_amount`) —
+  wer für etwas anderes bewusst zurücklegt, wird nicht angetastet. Ein überzogener
+  Umschlag mindert die Summe nicht (kein negativer Beitrag).
+- `debts/services.py::allocate_extra_once()` verteilt diesen Betrag einmalig nach
+  Priorität auf die Schulden — dieselbe Kappungs-/Rollover-Logik wie in
+  `simulate_payoff()`, aber als eigenständige, einfachere Funktion für einen
+  einzelnen Moment statt einer Mehrmonatssimulation.
+- Neuer Endpoint `GET /api/debts/sweep-proposal/?strategy=...` liefert Gesamtbetrag,
+  beitragende Umschläge und die vorgeschlagene Verteilung.
+- Auf der Schulden-Seite erscheint bei verfügbarem Überschuss eine Karte mit der
+  Verteilung und je Schuld einem Link "Zahlung erfassen" (führt zur Schuld, Betrag
+  vorausgefüllt) — mit dem ausdrücklichen Hinweis, die Zahlung erst einzutragen,
+  **nachdem** die Überweisung tatsächlich bei der Bank gemacht wurde. Ein Button
+  übernimmt den Gesamtbetrag zusätzlich als Extra-Budget in den bestehenden
+  Tilgungsplan-Rechner, um den Zinseffekt direkt sichtbar zu machen.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

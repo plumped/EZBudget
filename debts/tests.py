@@ -7,7 +7,7 @@ from django.test import TestCase
 from core.models import Account, Category, Transaction
 
 from .models import Debt
-from .services import accrue_monthly_interest, simulate_payoff
+from .services import accrue_monthly_interest, allocate_extra_once, eligible_envelope_surplus, simulate_payoff
 
 
 class SimulatePayoffTests(TestCase):
@@ -147,6 +147,112 @@ class SimulatePayoffTests(TestCase):
         self.assertEqual(with_key.months, without_key.months)
         self.assertEqual(with_key.unallocated_extra, Decimal("0"))
         self.assertEqual(without_key.unallocated_extra, Decimal("0"))
+
+
+class AllocateExtraOnceTests(TestCase):
+    """Einmalige Verteilung eines Extra-Betrags auf offene Schulden — Grundlage
+    für den Monatsende-Sweep-Vorschlag: die App löst keine echte Überweisung
+    aus, sondern zeigt nur, wie sich ein Betrag nach Priorität verteilen würde."""
+
+    def test_no_extra_budget_returns_no_allocations(self):
+        debts = [{"id": 1, "name": "Kredit", "balance": Decimal("1000"), "rate": Decimal("5")}]
+        result = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("0"))
+        self.assertEqual(result.allocations, [])
+        self.assertEqual(result.unallocated, Decimal("0"))
+
+    def test_no_open_debts_reports_everything_unallocated(self):
+        result = allocate_extra_once([], strategy="avalanche", extra_budget=Decimal("100"))
+        self.assertEqual(result.allocations, [])
+        self.assertEqual(result.unallocated, Decimal("100"))
+
+    def test_avalanche_prioritizes_highest_rate(self):
+        debts = [
+            {"id": 1, "name": "Niedrigzins", "balance": Decimal("1000"), "rate": Decimal("2")},
+            {"id": 2, "name": "Hochzins", "balance": Decimal("1000"), "rate": Decimal("20")},
+        ]
+        result = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("100"))
+        self.assertEqual(result.allocations, [{"id": 2, "name": "Hochzins", "amount": Decimal("100")}])
+        self.assertEqual(result.unallocated, Decimal("0"))
+
+    def test_snowball_prioritizes_smallest_balance(self):
+        debts = [
+            {"id": 1, "name": "Kleine Schuld", "balance": Decimal("300"), "rate": Decimal("2")},
+            {"id": 2, "name": "Grosse Schuld", "balance": Decimal("5000"), "rate": Decimal("20")},
+        ]
+        result = allocate_extra_once(debts, strategy="snowball", extra_budget=Decimal("100"))
+        self.assertEqual(result.allocations, [{"id": 1, "name": "Kleine Schuld", "amount": Decimal("100")}])
+
+    def test_capped_debt_overflow_rolls_to_next_priority_debt(self):
+        debts = [
+            {"id": 1, "name": "Gedeckelt", "balance": Decimal("1000"), "rate": Decimal("20"), "max_extra": Decimal("20")},
+            {"id": 2, "name": "Frei", "balance": Decimal("1000"), "rate": Decimal("2")},
+        ]
+        result = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("100"))
+        self.assertEqual(
+            result.allocations,
+            [{"id": 1, "name": "Gedeckelt", "amount": Decimal("20")}, {"id": 2, "name": "Frei", "amount": Decimal("80")}],
+        )
+        self.assertEqual(result.unallocated, Decimal("0"))
+
+    def test_max_extra_zero_excludes_debt_entirely(self):
+        debts = [
+            {"id": 1, "name": "Fixer Ratenkredit", "balance": Decimal("1000"), "rate": Decimal("20"), "max_extra": Decimal("0")},
+            {"id": 2, "name": "Frei", "balance": Decimal("1000"), "rate": Decimal("2")},
+        ]
+        result = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("100"))
+        self.assertEqual(result.allocations, [{"id": 2, "name": "Frei", "amount": Decimal("100")}])
+        self.assertEqual(result.unallocated, Decimal("0"))
+
+    def test_surplus_beyond_total_debt_is_unallocated_without_flag(self):
+        """Mehr Extra-Budget als insgesamt Schulden bestehen ist kein Kappungsproblem,
+        sondern schlicht kein Bedarf mehr — bleibt trotzdem korrekt unallocated."""
+        debts = [{"id": 1, "name": "Kleiner Rest", "balance": Decimal("50"), "rate": Decimal("5")}]
+        result = allocate_extra_once(debts, strategy="avalanche", extra_budget=Decimal("200"))
+        self.assertEqual(result.allocations, [{"id": 1, "name": "Kleiner Rest", "amount": Decimal("50")}])
+        self.assertEqual(result.unallocated, Decimal("150"))
+
+
+class EligibleEnvelopeSurplusTests(TestCase):
+    """Nutzt das echte heutige Datum statt eines fixen Jahres/Monats, da
+    Category.created_at (auto_now_add) nicht auf ein Testdatum kontrollierbar ist."""
+
+    def test_positive_rollover_of_ordinary_envelope_counts(self):
+        today = date.today()
+        category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("400"))
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        Transaction.objects.create(account=account, category=category, date=today, amount=Decimal("-350"))
+        total, sources = eligible_envelope_surplus(today.year, today.month)
+        self.assertEqual(total, Decimal("50"))
+        self.assertEqual(sources, [{"id": category.id, "name": "Lebensmittel", "amount": Decimal("50")}])
+
+    def test_overspent_envelope_does_not_reduce_total(self):
+        today = date.today()
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        overspent = Category.objects.create(name="Auto", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("100"))
+        Transaction.objects.create(account=account, category=overspent, date=today, amount=Decimal("-250"))
+        total, sources = eligible_envelope_surplus(today.year, today.month)
+        self.assertEqual(total, Decimal("0"))
+        self.assertEqual(sources, [])
+
+    def test_savings_goal_envelope_excluded(self):
+        today = date.today()
+        Category.objects.create(
+            name="Ferien", kind=Category.Kind.SAVINGS, monthly_budget=Decimal("200"), target_amount=Decimal("2000"),
+        )
+        total, sources = eligible_envelope_surplus(today.year, today.month)
+        self.assertEqual(total, Decimal("0"))
+        self.assertEqual(sources, [])
+
+    def test_debt_and_income_categories_excluded(self):
+        today = date.today()
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("0"), minimum_payment=Decimal("50"),
+        )
+        Category.objects.create(name="Lohn", kind=Category.Kind.INCOME, monthly_budget=Decimal("5000"))
+        total, sources = eligible_envelope_surplus(today.year, today.month)
+        self.assertEqual(total, Decimal("0"))
+        self.assertEqual(sources, [])
 
 
 class DebtCategoryLinkTests(TestCase):
@@ -360,6 +466,45 @@ class PayoffApiTests(TestCase):
     def test_payoff_endpoint_rejects_anonymous_user(self):
         self.client.logout()
         response = self.client.get("/api/debts/payoff/")
+        self.assertEqual(response.status_code, 403)
+
+
+class SweepProposalApiTests(TestCase):
+    def setUp(self):
+        User.objects.create_user(username="tester", password="testpass12345")
+        self.client.login(username="tester", password="testpass12345")
+
+    def test_sweep_proposal_distributes_envelope_surplus_to_highest_priority_debt(self):
+        today = date.today()
+        category = Category.objects.create(name="Lebensmittel", kind=Category.Kind.VARIABLE, monthly_budget=Decimal("400"))
+        account = Account.objects.create(name="Girokonto", starting_balance=Decimal("0"))
+        Transaction.objects.create(account=account, category=category, date=today, amount=Decimal("-350"))
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/sweep-proposal/", {"strategy": "avalanche"})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_available"], "50.00")
+        self.assertEqual(data["sources"], [{"id": category.id, "name": "Lebensmittel", "amount": "50.00"}])
+        self.assertEqual(data["allocations"], [{"id": 1, "name": "Kredit", "amount": "50.00"}])
+        self.assertEqual(data["unallocated"], "0.00")
+
+    def test_sweep_proposal_with_no_surplus_returns_empty(self):
+        Debt.objects.create(
+            name="Kredit", principal=Decimal("1000"), current_balance=Decimal("1000"),
+            interest_rate=Decimal("10"), minimum_payment=Decimal("100"),
+        )
+        response = self.client.get("/api/debts/sweep-proposal/")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_available"], "0.00")
+        self.assertEqual(data["allocations"], [])
+
+    def test_sweep_proposal_rejects_anonymous_user(self):
+        self.client.logout()
+        response = self.client.get("/api/debts/sweep-proposal/")
         self.assertEqual(response.status_code, 403)
 
 
