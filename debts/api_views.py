@@ -104,6 +104,7 @@ class PayoffSimulationView(APIView):
                 "balance": d.current_balance,
                 "rate": d.interest_rate,
                 "minimum": d.minimum_payment,
+                "max_extra": d.max_extra_payment,
             }
             for d in debts
         ]
@@ -121,6 +122,7 @@ class PayoffSimulationView(APIView):
                 "payoff_order": result.payoff_order,
                 "debt_free_date": result.debt_free_date,
                 "reached_max": result.reached_max,
+                "unallocated_extra": str(result.unallocated_extra.quantize(Decimal("0.01"))),
                 "schedule": [
                     {
                         "month": row["month"],

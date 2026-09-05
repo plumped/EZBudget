@@ -1,4 +1,4 @@
-import { ChartLineDown, PencilSimple, Plus } from '@phosphor-icons/react'
+import { ChartLineDown, PencilSimple, Plus, Warning } from '@phosphor-icons/react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../api/client'
@@ -128,6 +128,14 @@ export function DebtsPage() {
             </div>
           </div>
 
+          {result && parseFloat(result.unallocated_extra) > 0 && (
+            <div className="alert-banner warning">
+              <Warning size={18} weight="fill" className="icon" aria-hidden="true" />
+              {formatMoney(result.unallocated_extra)} des Extra-Budgets konnten nicht verteilt werden — eine oder
+              mehrere Schulden erlauben laut ihrer „Maximalen Zusatzzahlung" nicht mehr Sondertilgung.
+            </div>
+          )}
+
           {result && result.schedule.length > 0 && (
             <div className="card chart-card">
               <div className="hero-label">Tilgungsverlauf</div>
@@ -162,6 +170,10 @@ export function DebtsPage() {
                   <div className="row-sub">
                     {d.creditor && `${d.creditor} · `}
                     {d.interest_rate}% Zins · Mindestrate {formatMoney(d.minimum_payment)}
+                    {d.max_extra_payment !== null &&
+                      (parseFloat(d.max_extra_payment) === 0
+                        ? ' · keine Zuzahlung möglich'
+                        : ` · max. +${formatMoney(d.max_extra_payment)} Zuzahlung`)}
                     <Link to={`/debts/${d.id}/edit`} className="link-action">
                       <PencilSimple size={12} weight="bold" aria-hidden="true" />
                       bearbeiten

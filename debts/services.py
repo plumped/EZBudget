@@ -12,6 +12,7 @@ class SimResult:
     schedule: list  # [{month, date, total_balance}]
     debt_free_date: object = None
     reached_max: bool = False
+    unallocated_extra: Decimal = Decimal("0")
 
 
 def _add_months(base_date, months):
@@ -22,8 +23,11 @@ def _add_months(base_date, months):
 
 def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_months=600, start_date=None):
     """
-    debts: iterable of dicts {id, name, balance, rate, minimum}
+    debts: iterable of dicts {id, name, balance, rate, minimum, max_extra}
         rate = jährlicher Zinssatz in Prozent (z.B. 8.5)
+        max_extra = maximale monatliche Zuzahlung über die Mindestrate hinaus, die dieser
+            Kredit erlaubt (None/fehlend = unbegrenzt, 0 = keine Zuzahlung möglich, z.B. ein
+            Ratenkredit mit fixem Tilgungsplan). Optional, für Rückwärtskompatibilität.
     strategy: 'avalanche' (höchster Zins zuerst) oder 'snowball' (kleinste Restschuld zuerst)
     extra_budget: zusätzlicher monatlicher Betrag OBERHALB der Summe aller Mindestraten
     """
@@ -31,6 +35,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     for d in debts:
         if Decimal(d["balance"]) <= 0:
             continue
+        max_extra = d.get("max_extra")
         snap.append(
             {
                 "id": d["id"],
@@ -38,6 +43,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
                 "balance": Decimal(d["balance"]),
                 "rate": Decimal(d["rate"]),
                 "minimum": Decimal(d["minimum"]),
+                "max_extra": Decimal(max_extra) if max_extra is not None else None,
             }
         )
 
@@ -63,6 +69,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
     # ab dem Folgemonat zusätzlich zum Extra-Budget verteilt ("Schneeball-Effekt") —
     # das ist der eigentliche Kern von Avalanche/Snowball, nicht nur die Priorität.
     released_minimums = Decimal("0")
+    unallocated_extra = Decimal("0")
 
     while any(d["balance"] > 0 for d in snap) and months < max_months:
         months += 1
@@ -81,15 +88,26 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
             pay = min(d["minimum"], d["balance"])
             d["balance"] -= pay
 
-        # 3) Restbudget (Extra-Budget + freigewordene Mindestraten) nach Priorität verteilen
+        # 3) Restbudget (Extra-Budget + freigewordene Mindestraten) nach Priorität verteilen.
+        # Manche Kredite (z.B. ein Ratenkredit mit fixem Tilgungsplan) erlauben keine oder nur
+        # eine gedeckelte Zuzahlung über die Mindestrate hinaus (max_extra) — was ein gedeckelter
+        # Kredit nicht aufnehmen kann, fliesst an die nächste Schuld in der Prioritätsreihenfolge;
+        # was am Ende nirgends platziert werden kann, wird als unallocated_extra gemeldet statt
+        # stillschweigend zu verfallen. Restbudget, das übrig bleibt, WEIL schlicht keine Schuld
+        # mehr offen ist (normales Ende der Tilgung), ist dagegen kein "blockierter" Betrag —
+        # das war schon vor max_extra so und ist einfach frei gewordenes Geld, keine Auffälligkeit.
         pool = Decimal(extra_budget) + released_minimums
         ordered = sorted([d for d in snap if d["balance"] > 0], key=sort_key)
+        total_capacity = sum((d["balance"] for d in ordered), Decimal("0"))
+        natural_leftover = max(Decimal("0"), pool - total_capacity)
         for d in ordered:
             if pool <= 0:
                 break
-            pay = min(pool, d["balance"])
+            cap = pool if d["max_extra"] is None else min(pool, d["max_extra"])
+            pay = min(pool, d["balance"], cap)
             d["balance"] -= pay
             pool -= pay
+        unallocated_extra += max(Decimal("0"), pool - natural_leftover)
 
         for d in snap:
             if d["balance"] < 0:
@@ -118,6 +136,7 @@ def simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("0"), max_
         schedule=schedule,
         debt_free_date=debt_free_date,
         reached_max=months >= max_months,
+        unallocated_extra=unallocated_extra,
     )
 
 

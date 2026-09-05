@@ -136,6 +136,12 @@ export function DebtDetailPage() {
             <div className="hero-label">Mindestrate</div>
             <div className="stat-value num">{formatMoney(debt.minimum_payment)}</div>
           </div>
+          <div>
+            <div className="hero-label">Max. Zusatzzahlung / Monat</div>
+            <div className="stat-value num">
+              {debt.max_extra_payment === null ? 'Unbegrenzt' : formatMoney(debt.max_extra_payment)}
+            </div>
+          </div>
         </div>
       </div>
 

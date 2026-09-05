@@ -93,6 +93,7 @@ export interface Debt {
   current_balance: string
   interest_rate: string
   minimum_payment: string
+  max_extra_payment: string | null
   is_paid_off: boolean
   category: number | null
   category_name: string | null
@@ -116,6 +117,7 @@ export interface PayoffResult {
   payoff_order: string[]
   debt_free_date: string | null
   reached_max: boolean
+  unallocated_extra: string
   schedule: { month: number; date: string | null; total_balance: string }[]
 }
 

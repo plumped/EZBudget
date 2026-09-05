@@ -18,6 +18,7 @@ export function DebtFormPage() {
   const [currentBalance, setCurrentBalance] = useState('')
   const [interestRate, setInterestRate] = useState('')
   const [minimumPayment, setMinimumPayment] = useState('')
+  const [maxExtraPayment, setMaxExtraPayment] = useState('')
   const [accounts, setAccounts] = useState<Account[]>([])
   const [accountId, setAccountId] = useState('')
   const [loading, setLoading] = useState(!isNew)
@@ -39,6 +40,7 @@ export function DebtFormPage() {
       setCurrentBalance(d.current_balance)
       setInterestRate(d.interest_rate)
       setMinimumPayment(d.minimum_payment)
+      setMaxExtraPayment(d.max_extra_payment ?? '')
       setAccountId(d.account ? String(d.account) : '')
       setLoading(false)
     })
@@ -70,6 +72,7 @@ export function DebtFormPage() {
         current_balance: currentBalance,
         interest_rate: interestRate,
         minimum_payment: minimumPayment,
+        max_extra_payment: maxExtraPayment === '' ? null : maxExtraPayment,
         account: accountId ? Number(accountId) : null,
       }
       if (isNew) {
@@ -183,6 +186,21 @@ export function DebtFormPage() {
                 <FieldError id="minimum-payment-error" message={errors.fields.minimum_payment} />
               )}
             </div>
+          </div>
+          <div className="field">
+            <label htmlFor="max_extra_payment">Maximale Zusatzzahlung / Monat (optional)</label>
+            <input
+              id="max_extra_payment"
+              value={maxExtraPayment}
+              onChange={(e) => setMaxExtraPayment(e.target.value)}
+              placeholder="leer = unbegrenzt"
+              aria-describedby="max-extra-payment-help"
+            />
+            <p className="helptext" id="max-extra-payment-help">
+              Manche Kredite (z.B. ein Ratenkredit mit fixem Tilgungsplan) erlauben keine freie
+              Sondertilgung. Leer lassen = unbegrenzt (z.B. Kreditkarte), 0 eintragen = diese Schuld
+              darf im Tilgungsplan-Rechner nie mehr als die Mindestrate erhalten.
+            </p>
           </div>
           <div className="field">
             <label htmlFor="account">Verknüpftes Konto (optional)</label>

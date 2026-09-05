@@ -349,6 +349,29 @@ Umschlag als auch über ihr Konto eine Schuld beeinflussen (mit invertiertem Vor
 da eine Ausgabe auf dem Konto die Restschuld erhöht statt senkt) — betrifft
 ausnahmsweise beides dieselbe Schuld, zählt nur der Konto-Weg.
 
+### 5.20 Kappungsgrenze für Zusatzzahlungen im Tilgungsplan-Rechner
+
+Nicht jeder Kredit erlaubt beliebige Sondertilgungen: ein Ratenkredit mit fixem
+Tilgungsplan (z.B. ein Cembra-Konsumkredit) lässt sich oft gar nicht oder nur bis zu
+einem festen Betrag pro Monat zusätzlich zurückzahlen — anders als eine Kreditkarte, bei
+der jede Zuzahlung willkommen ist. Der Avalanche/Snowball-Rechner (`simulate_payoff()` in
+`debts/services.py`) hat das bisher ignoriert und ging von einem beliebig verteilbaren
+Extra-Budget aus.
+
+Jede Schuld hat jetzt ein optionales Feld `max_extra_payment` ("Maximale Zusatzzahlung /
+Monat"): leer = unbegrenzt (Standard, passend für eine Kreditkarte), `0` = überhaupt keine
+Zuzahlung über die Mindestrate hinaus möglich (ein fixer Ratenkredit). Der Rechner
+berücksichtigt das bei der monatlichen Verteilung des Extra-Budgets:
+
+- Was eine gedeckelte Schuld nicht aufnehmen darf, fliesst an die nächste Schuld in der
+  Prioritätsreihenfolge (Avalanche/Snowball), statt einfach dort liegen zu bleiben.
+- Was am Ende wirklich nirgends platziert werden kann — weil alle noch offenen Schulden
+  gedeckelt sind —, wird als `unallocated_extra` im Simulationsergebnis gemeldet, statt
+  still zu verschwinden. Auf der Schulden-Seite erscheint dafür ein Warnbanner mit dem
+  betroffenen Betrag. Explizit **nicht** mitgezählt wird das übliche "Restgeld" im letzten
+  Monat, wenn alle Schulden bereits vollständig getilgt sind — das ist kein blockierter
+  Betrag, sondern schlicht frei gewordenes Budget.
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach

@@ -82,6 +82,72 @@ class SimulatePayoffTests(TestCase):
         self.assertTrue(result.reached_max)
         self.assertEqual(result.months, 6)
 
+    def test_max_extra_zero_blocks_any_extra_payment(self):
+        """Ein Ratenkredit mit fixem Tilgungsplan (max_extra=0) darf trotz Priorität
+        keine Zuzahlung erhalten — die einzige Schuld im Plan, also bleibt das gesamte
+        Extra-Budget ungenutzt."""
+        debts = [
+            {
+                "id": 1, "name": "Fixer Ratenkredit", "balance": Decimal("2000"), "rate": Decimal("5"),
+                "minimum": Decimal("100"), "max_extra": Decimal("0"),
+            },
+        ]
+        result = simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("300"))
+        without_extra = simulate_payoff(
+            [{"id": 1, "name": "Fixer Ratenkredit", "balance": Decimal("2000"), "rate": Decimal("5"), "minimum": Decimal("100")}],
+            strategy="avalanche", extra_budget=Decimal("0"),
+        )
+        self.assertEqual(result.months, without_extra.months)
+        self.assertGreater(result.unallocated_extra, Decimal("0"))
+
+    def test_capped_debt_overflow_rolls_to_next_priority_debt(self):
+        """Was ein gedeckelter Kredit nicht aufnehmen kann, fliesst an die nächste
+        Schuld in der Prioritätsreihenfolge, statt zu verfallen. Zins bewusst 0 und auf
+        einen Monat begrenzt, damit die Beträge exakt nachrechenbar bleiben — es geht
+        hier nur um die Verteilung innerhalb eines Monats, nicht um den Gesamtverlauf."""
+        debts = [
+            {
+                "id": 1, "name": "Gedeckelt", "balance": Decimal("1000"), "rate": Decimal("0"),
+                "minimum": Decimal("50"), "max_extra": Decimal("20"),
+            },
+            {"id": 2, "name": "Frei", "balance": Decimal("1000"), "rate": Decimal("0"), "minimum": Decimal("50")},
+        ]
+        result = simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("200"), max_months=1)
+        # Beide Schulden sind noch weit offen, das Extra-Budget passt komplett rein —
+        # nichts bleibt unplatziert.
+        self.assertEqual(result.unallocated_extra, Decimal("0"))
+        first_month = result.schedule[0]
+        # Gedeckelter Kredit bekommt nur seine erlaubten 20 Extra (1000 - 50 - 20 = 930),
+        # der Rest (180) fliesst an den ungedeckelten (1000 - 50 - 180 = 770).
+        self.assertEqual(first_month["balances"][1], Decimal("930"))
+        self.assertEqual(first_month["balances"][2], Decimal("770"))
+
+    def test_unallocated_extra_grows_once_only_capped_debt_remains(self):
+        """Sobald die ungedeckelte Schuld getilgt ist und nur noch eine stark gedeckelte
+        übrig bleibt, kann das Extra-Budget nicht mehr vollständig verteilt werden — das
+        muss sich in unallocated_extra zeigen, nicht stillschweigend verschwinden."""
+        debts = [
+            {
+                "id": 1, "name": "Nur gedeckelt", "balance": Decimal("500"), "rate": Decimal("0"),
+                "minimum": Decimal("50"), "max_extra": Decimal("20"),
+            },
+        ]
+        result = simulate_payoff(debts, strategy="avalanche", extra_budget=Decimal("200"))
+        self.assertGreater(result.unallocated_extra, Decimal("0"))
+
+    def test_max_extra_none_behaves_as_unlimited(self):
+        debts_with_key = [
+            {"id": 1, "name": "Kreditkarte", "balance": Decimal("3000"), "rate": Decimal("10"), "minimum": Decimal("100"), "max_extra": None},
+        ]
+        debts_without_key = [
+            {"id": 1, "name": "Kreditkarte", "balance": Decimal("3000"), "rate": Decimal("10"), "minimum": Decimal("100")},
+        ]
+        with_key = simulate_payoff(debts_with_key, strategy="avalanche", extra_budget=Decimal("300"))
+        without_key = simulate_payoff(debts_without_key, strategy="avalanche", extra_budget=Decimal("300"))
+        self.assertEqual(with_key.months, without_key.months)
+        self.assertEqual(with_key.unallocated_extra, Decimal("0"))
+        self.assertEqual(without_key.unallocated_extra, Decimal("0"))
+
 
 class DebtCategoryLinkTests(TestCase):
     """Jede Schuld bekommt automatisch einen eigenen, verknüpften Umschlag, über den

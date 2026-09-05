@@ -13,7 +13,7 @@ class DebtSerializer(serializers.ModelSerializer):
         model = Debt
         fields = [
             "id", "name", "creditor", "principal", "current_balance", "interest_rate",
-            "minimum_payment", "is_paid_off", "category", "category_name", "account", "account_name",
-            "created_at", "paid_so_far", "progress_percent",
+            "minimum_payment", "max_extra_payment", "is_paid_off", "category", "category_name", "account",
+            "account_name", "created_at", "paid_so_far", "progress_percent",
         ]
         read_only_fields = ["id", "is_paid_off", "category", "created_at"]

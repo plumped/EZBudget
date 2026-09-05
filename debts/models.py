@@ -17,6 +17,15 @@ class Debt(models.Model):
         max_digits=5, decimal_places=2, default=Decimal("0"), help_text="Jährlicher effektiver Zinssatz in %"
     )
     minimum_payment = models.DecimalField(max_digits=10, decimal_places=2, help_text="Monatliche Mindestrate")
+    max_extra_payment = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text=(
+            "Maximale zusätzliche Zahlung pro Monat über die Mindestrate hinaus, die dieser "
+            "Kredit erlaubt — leer = unbegrenzt (z.B. Kreditkarte), 0 = keine Zuzahlung möglich "
+            "(z.B. ein Ratenkredit mit fixem Tilgungsplan ohne freie Sondertilgung). Begrenzt, "
+            "wie viel Extra-Budget der Tilgungsplan-Rechner auf diese Schuld verteilen darf."
+        ),
+    )
     is_paid_off = models.BooleanField(default=False)
     category = models.OneToOneField(
         Category,
