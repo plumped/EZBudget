@@ -17,18 +17,20 @@ import {
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+// Übersicht bleibt bewusst zuoberst (häufigster Einstiegspunkt), der Rest ist
+// alphabetisch sortiert. Hilfe ist absichtlich NICHT Teil dieser Liste — sie
+// wird separat, abseits der Navbar, ganz unten in der Sidebar platziert.
 const NAV_ITEMS: { to: string; label: string; icon: Icon; end?: boolean }[] = [
   { to: '/', label: 'Übersicht', icon: House, end: true },
-  { to: '/envelopes', label: 'Umschläge', icon: Envelope },
   { to: '/transactions', label: 'Buchungen', icon: Receipt },
-  { to: '/accounts', label: 'Konten', icon: Bank },
   { to: '/recurring', label: 'Daueraufträge', icon: ArrowsClockwise },
+  { to: '/settings', label: 'Einstellungen', icon: GearSix },
+  { to: '/import', label: 'Import', icon: UploadSimple },
+  { to: '/accounts', label: 'Konten', icon: Bank },
+  { to: '/rules', label: 'Regeln', icon: Funnel },
   { to: '/debts', label: 'Schulden', icon: ChartLineDown },
   { to: '/trends', label: 'Trends', icon: ChartLine },
-  { to: '/import', label: 'Import', icon: UploadSimple },
-  { to: '/rules', label: 'Regeln', icon: Funnel },
-  { to: '/settings', label: 'Einstellungen', icon: GearSix },
-  { to: '/help', label: 'Hilfe', icon: Question },
+  { to: '/envelopes', label: 'Umschläge', icon: Envelope },
 ]
 
 export function Layout() {
@@ -55,6 +57,14 @@ export function Layout() {
               </NavLink>
             )
           })}
+        </nav>
+        <nav className="sidebar-nav sidebar-help">
+          <NavLink to="/help" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <span className="icon">
+              <Question size={18} weight="regular" aria-hidden="true" />
+            </span>
+            <span>Hilfe</span>
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           <span className="user">{user?.username}</span>

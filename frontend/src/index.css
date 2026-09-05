@@ -259,8 +259,13 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   color: #fff;
 }
 
-.sidebar-footer {
+.sidebar-help {
   margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-footer {
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
@@ -1589,6 +1594,14 @@ input[type='checkbox'] {
   }
   .sidebar-nav a span:last-child {
     display: none;
+  }
+  .sidebar-help {
+    margin-top: 0;
+    margin-left: auto;
+    padding-top: 0;
+    padding-left: 16px;
+    border-top: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
   .sidebar-footer {
     display: none;
