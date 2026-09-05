@@ -491,6 +491,16 @@ und Einstellungen. Ein Inhaltsverzeichnis mit Anker-Links oben auf der Seite
 springt per Klick zum jeweiligen Abschnitt (`html { scroll-behavior: smooth }`,
 respektiert `prefers-reduced-motion`).
 
+Jeder Abschnitt folgt demselben Muster, damit die Anleitung sowohl für einen
+schnellen Überblick als auch zum tiefen Verständnis taugt: ein kurzer
+„Kurz gesagt"-Kasten mit einer einfachen Analogie (z.B. Umschläge als
+physische Bargeld-Couverts), die eigentliche Erklärung der Mechanik, und
+mindestens ein „Beispiel"-Kasten mit konkreten CHF-Beträgen, der den
+kompletten Ablauf durchrechnet (z.B. Avalanche- vs. Snowball-Verteilung von
+CHF 200 Extra-Budget auf zwei konkrete Schulden). „Tipp"-Kästen weisen auf
+echte Stolperfallen hin (z.B. dass die Mindestrate einer Schuld rein
+planerisch ist und ohne Dauerauftrag nicht automatisch abgebucht wird).
+
 ## 6. Nächste Schritte
 
 1. **Produktions-Deployment**: Single-Server-Aufbau, der `frontend/dist/` (nach
