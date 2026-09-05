@@ -1,49 +1,51 @@
-@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=Roboto+Mono:wght@500;600&display=swap');
 
 /*
-  Design tokens — see design-system/ezbudget/MASTER.md for the full rationale
-  (product/style/typography/icon research via the ui-ux-pro-max skill).
-  Light palette is the default; dark activates either automatically via
-  prefers-color-scheme, or forced by [data-theme] (see ThemeContext) which
-  always wins over the OS preference in either direction.
+  Design tokens — "Calm Ledger": ruhiges, helles Premium-Fintech-Styling
+  (warmes Off-White, ein Waldgrün-Akzent, weiche diffuse Schatten statt Glas
+  oder harter Blöcke). Light palette is the default; dark activates either
+  automatically via prefers-color-scheme, or forced by [data-theme] (see
+  ThemeContext) which always wins over the OS preference in either direction.
 */
 :root {
-  --color-primary: #0f172a;
-  --color-primary-hover: #1e293b;
+  --color-primary: #12513b;
+  --color-primary-hover: #1a6b4d;
   --color-on-primary: #ffffff;
-  --color-secondary: #1e3a8a;
-  --color-secondary-soft: #eef2ff;
+  --color-secondary: #12513b;
+  --color-secondary-soft: #e7efe9;
 
-  --color-bg: #f8fafc;
-  --color-fg: #0f172a;
+  --color-bg: #f7f6f3;
+  --color-fg: #1a1815;
   --color-card: #ffffff;
-  --color-muted: #eef1f6;
-  --color-muted-fg: #475569;
-  --color-faint-fg: #94a3b8;
-  --color-border: #e2e8f0;
+  --color-muted: #f1efe9;
+  --color-muted-fg: #7a756c;
+  --color-faint-fg: #a8a297;
+  --color-border: #eae7e0;
+  --color-border-strong: #dcd8ce;
 
-  --color-positive: #059669;
-  --color-positive-soft: #ecfdf5;
-  --color-destructive: #dc2626;
-  --color-destructive-soft: #fef2f2;
-  --color-warning: #b45309;
-  --color-warning-soft: #fffbeb;
-  --color-ring: #1e3a8a;
+  --color-positive: #12513b;
+  --color-positive-soft: #e7efe9;
+  --color-destructive: #a8432c;
+  --color-destructive-soft: #f7eae6;
+  --color-warning: #6b4e0f;
+  --color-warning-soft: #f6efdd;
+  --color-ring: #2f8f63;
 
-  --sidebar-bg: #0f172a;
-  --sidebar-fg: #94a3b8;
+  --sidebar-bg: #15201b;
+  --sidebar-fg: #98a79c;
   --sidebar-fg-active: #ffffff;
-  --sidebar-accent: #3b82f6;
+  --sidebar-accent: #2f8f63;
 
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 8px 20px rgba(15, 23, 42, 0.08);
-  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.14);
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(26, 24, 21, 0.04), 0 8px 24px rgba(26, 24, 21, 0.05);
+  --shadow-md: 0 2px 4px rgba(26, 24, 21, 0.05), 0 16px 36px rgba(26, 24, 21, 0.09);
+  --shadow-lg: 0 4px 8px rgba(26, 24, 21, 0.04), 0 20px 40px rgba(26, 24, 21, 0.14);
 
-  --font-heading: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-body: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Roboto Mono', 'SFMono-Regular', Consolas, monospace;
 
   --motion-fast: 150ms;
   --motion-base: 220ms;
@@ -54,24 +56,28 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-primary: #3b82f6;
-    --color-primary-hover: #60a5fa;
-    --color-on-primary: #071120;
-    --color-secondary: #60a5fa;
-    --color-secondary-soft: #12213d;
+    --color-primary: #34a373;
+    --color-primary-hover: #3fbb84;
+    --color-on-primary: #08150f;
+    --color-secondary: #34a373;
+    --color-secondary-soft: #16281f;
 
-    --color-bg: #0b1220;
-    --color-fg: #f1f5f9;
-    --color-card: #131c2e;
-    --color-muted: #182338;
-    --color-muted-fg: #94a3b8;
-    --color-faint-fg: #64748b;
-    --color-border: rgba(255, 255, 255, 0.08);
+    --color-bg: #14120f;
+    --color-fg: #f1ede6;
+    --color-card: #1c1a16;
+    --color-muted: #24211c;
+    --color-muted-fg: #a39c8f;
+    --color-faint-fg: #6f6a60;
+    --color-border: rgba(255, 250, 240, 0.08);
+    --color-border-strong: rgba(255, 250, 240, 0.14);
 
-    --color-positive-soft: rgba(5, 150, 105, 0.16);
-    --color-destructive-soft: rgba(220, 38, 38, 0.16);
-    --color-warning-soft: rgba(180, 83, 9, 0.18);
-    --color-ring: #60a5fa;
+    --color-positive: #34a373;
+    --color-positive-soft: rgba(52, 163, 115, 0.18);
+    --color-destructive: #e0704a;
+    --color-destructive-soft: rgba(224, 112, 74, 0.16);
+    --color-warning: #d9ad4f;
+    --color-warning-soft: rgba(217, 173, 79, 0.16);
+    --color-ring: #3fbb84;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
@@ -84,24 +90,28 @@
 /* Manueller Theme-Override (ThemeContext) — gewinnt in beide Richtungen über
    die OS-Einstellung, egal ob der Browser hell oder dunkel bevorzugt. */
 :root[data-theme='dark'] {
-  --color-primary: #3b82f6;
-  --color-primary-hover: #60a5fa;
-  --color-on-primary: #071120;
-  --color-secondary: #60a5fa;
-  --color-secondary-soft: #12213d;
+  --color-primary: #34a373;
+  --color-primary-hover: #3fbb84;
+  --color-on-primary: #08150f;
+  --color-secondary: #34a373;
+  --color-secondary-soft: #16281f;
 
-  --color-bg: #0b1220;
-  --color-fg: #f1f5f9;
-  --color-card: #131c2e;
-  --color-muted: #182338;
-  --color-muted-fg: #94a3b8;
-  --color-faint-fg: #64748b;
-  --color-border: rgba(255, 255, 255, 0.08);
+  --color-bg: #14120f;
+  --color-fg: #f1ede6;
+  --color-card: #1c1a16;
+  --color-muted: #24211c;
+  --color-muted-fg: #a39c8f;
+  --color-faint-fg: #6f6a60;
+  --color-border: rgba(255, 250, 240, 0.08);
+  --color-border-strong: rgba(255, 250, 240, 0.14);
 
-  --color-positive-soft: rgba(5, 150, 105, 0.16);
-  --color-destructive-soft: rgba(220, 38, 38, 0.16);
-  --color-warning-soft: rgba(180, 83, 9, 0.18);
-  --color-ring: #60a5fa;
+  --color-positive: #34a373;
+  --color-positive-soft: rgba(52, 163, 115, 0.18);
+  --color-destructive: #e0704a;
+  --color-destructive-soft: rgba(224, 112, 74, 0.16);
+  --color-warning: #d9ad4f;
+  --color-warning-soft: rgba(217, 173, 79, 0.16);
+  --color-ring: #3fbb84;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
@@ -391,6 +401,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   color: var(--color-fg);
 }
 .month-switcher span {
+  font-family: var(--font-mono);
   padding: 0 6px;
   min-width: 130px;
   text-align: center;
@@ -403,6 +414,13 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   border-radius: var(--radius-lg);
   padding: 24px 26px;
   box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease);
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
 }
 .card + .card {
   margin-top: 16px;
@@ -415,10 +433,11 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
 }
 
 .hero-label {
-  font-size: 0.78rem;
-  color: var(--color-muted-fg);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-faint-fg);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   font-weight: 600;
   margin-bottom: 6px;
 }
@@ -459,10 +478,10 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   margin: 34px 0 12px;
 }
 .section-title .tag {
-  font-family: var(--font-body);
+  font-family: var(--font-mono);
   font-weight: 500;
-  font-size: 0.85rem;
-  color: var(--color-muted-fg);
+  font-size: 0.78rem;
+  color: var(--color-faint-fg);
 }
 .section-title .tag a {
   color: var(--color-secondary);
@@ -474,24 +493,27 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
 
 /* ---------- Row list ---------- */
 .row-list {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .row-item {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 15px 20px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 14px 18px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease);
   animation: row-in var(--motion-base) var(--motion-ease) both;
 }
-.row-item:last-child {
-  border-bottom: none;
-}
 .row-item:hover {
-  background: var(--color-muted);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
 }
 .row-list .row-item:nth-child(1) { animation-delay: 0ms; }
 .row-list .row-item:nth-child(2) { animation-delay: 30ms; }
@@ -519,8 +541,8 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']) {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: var(--color-muted);
-  color: var(--color-muted-fg);
+  background: var(--color-secondary-soft);
+  color: var(--color-secondary);
 }
 /* ---------- Icon picker ---------- */
 .icon-picker summary {
@@ -619,8 +641,9 @@ a.row-title:hover {
   color: var(--color-secondary);
 }
 .row-sub {
-  font-size: 0.78rem;
-  color: var(--color-muted-fg);
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  color: var(--color-faint-fg);
   margin-top: 3px;
   display: flex;
   gap: 8px;
@@ -705,7 +728,8 @@ table.data .link-action + .link-action {
   text-align: center;
   box-shadow: var(--shadow-sm);
   animation: row-in var(--motion-base) var(--motion-ease) both;
-  transition: box-shadow var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+  transition: box-shadow var(--motion-base) var(--motion-ease), transform var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease);
 }
 .envelope-grid .envelope-card:nth-child(1) { animation-delay: 0ms; }
 .envelope-grid .envelope-card:nth-child(2) { animation-delay: 30ms; }
@@ -715,7 +739,8 @@ table.data .link-action + .link-action {
 .envelope-grid .envelope-card:nth-child(n + 6) { animation-delay: 150ms; }
 .envelope-card:hover {
   box-shadow: var(--shadow-md);
-  transform: translateY(-3px);
+  transform: translateY(-2px);
+  border-color: var(--color-border-strong);
 }
 .envelope-card.archived {
   opacity: 0.55;
@@ -808,10 +833,13 @@ a.envelope-name:hover {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 10px;
+  padding: 2px 9px;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   background: var(--color-muted);
   color: var(--color-muted-fg);
   border: 1px solid var(--color-border);
@@ -858,11 +886,12 @@ table.data {
 }
 table.data th {
   text-align: left;
+  font-family: var(--font-mono);
   font-weight: 600;
-  color: var(--color-muted-fg);
-  font-size: 0.72rem;
+  color: var(--color-faint-fg);
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   padding: 12px 16px;
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
@@ -1101,7 +1130,7 @@ input[type='checkbox'] {
   color: #fff;
 }
 .btn.danger:hover {
-  background: #b91c1c;
+  background: #8a3620;
 }
 .btn:disabled {
   opacity: 0.5;
@@ -1283,7 +1312,7 @@ input[type='checkbox'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 20% 20%, #1e293b, var(--sidebar-bg) 60%);
+  background: radial-gradient(circle at 20% 20%, #1f3329, var(--sidebar-bg) 60%);
   padding: 24px;
 }
 .auth-card {

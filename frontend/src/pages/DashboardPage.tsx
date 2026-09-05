@@ -205,7 +205,7 @@ export function DashboardPage() {
         ) : (
           data.recent_transactions.map((t) => (
             <div className="row-item" key={t.id}>
-              <div className="row-dot" style={{ background: t.category_color ?? '#98a2b3' }} />
+              <div className="row-dot" style={{ background: t.category_color ?? 'var(--color-faint-fg)' }} />
               <div className="row-main">
                 <span className="row-title">{t.description || '(keine Beschreibung)'}</span>
                 <div className="row-sub">
